@@ -1,0 +1,11 @@
+.gradle
+build/
+bin/
+
+test/temp
+test/*.json
+test/*.log
+
+.idea
+.vscode/
+.DS_Store

@@ -1,0 +1,4 @@
+{
+  "debug": true,
+  "messengerUri": "amqp://admin:password@localhost:5672"
+}

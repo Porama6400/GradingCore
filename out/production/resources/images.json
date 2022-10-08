@@ -1,0 +1,10 @@
+[
+  {
+    "id": "java",
+    "imageId": "grader-java",
+    "workingDirectory": "/home/grader/",
+    "startCommand": "docker run --rm -d --cap-drop ALL --cpus 1 --ulimit nproc=32 --ulimit nofile=64 %image% sleep 10",
+    "runCommand": "sh compile.sh",
+    "timeLimitHard": 3000
+  }
+]

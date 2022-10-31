@@ -1,7 +1,8 @@
 package dev.porama.gradingcore.grader;
 
 import dev.porama.gradingcore.config.TemplateService;
-import dev.porama.gradingcore.container.data.ContainerTemplate;
+import dev.porama.gradingcore.config.TemplateConfiguration;
+import dev.porama.gradingcore.container.ContainerTemplate;
 import dev.porama.gradingcore.messenger.Messenger;
 import dev.porama.gradingcore.grader.data.GradingRequest;
 import dev.porama.gradingcore.grader.data.GradingResult;
@@ -14,7 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class GraderService {
 
@@ -49,10 +49,13 @@ public class GraderService {
 
 
     public CompletableFuture<GradingResult> submit(GradingRequest request) {
-        ContainerTemplate template = templateService.get(request.getType());
-        Objects.requireNonNull(template);
+        ContainerTemplate config = templateService.get(request.getType());
 
-        GradingSession gradingSession = new GradingSession(template, request.getFiles(), executingThreadPool, tempFileService);
+        if (config == null) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid template " + request.getType()));
+        }
+
+        GradingSession gradingSession = new GradingSession(config, request.getFiles(), executingThreadPool, tempFileService);
         return submit(gradingSession);
     }
 

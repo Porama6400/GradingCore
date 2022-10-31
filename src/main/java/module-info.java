@@ -19,4 +19,5 @@ open module GradingCore.main {
     exports dev.porama.gradingcore.container;
     exports dev.porama.gradingcore.temp;
     exports dev.porama.gradingcore.file;
+    exports dev.porama.gradingcore.config;
 }

@@ -1,16 +1,15 @@
 package dev.porama.gradingcore.grader;
 
+import dev.porama.gradingcore.config.TemplateConfiguration;
 import dev.porama.gradingcore.container.BasicContainer;
 import dev.porama.gradingcore.container.Container;
-import dev.porama.gradingcore.container.data.ContainerTemplate;
+import dev.porama.gradingcore.container.ContainerTemplate;
 import dev.porama.gradingcore.container.data.ExecutionResult;
 import dev.porama.gradingcore.temp.TempFileService;
-import dev.porama.gradingcore.temp.TemporaryFile;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -30,10 +29,10 @@ public class GradingSession {
 
     private Logger logger = LoggerFactory.getLogger(GradingSession.class);
 
-    public GradingSession(ContainerTemplate template, Map<String, byte[]> files, ExecutorService workerExecutor, TempFileService tempFileService) {
+    public GradingSession(ContainerTemplate config, Map<String, byte[]> files, ExecutorService workerExecutor, TempFileService tempFileService) {
         this.files = files;
         this.tempFileService = tempFileService;
-        this.container = new BasicContainer(template, workerExecutor, this.tempFileService);
+        this.container = new BasicContainer(config, workerExecutor, this.tempFileService);
     }
 
     public void setState(State state) {
@@ -64,7 +63,8 @@ public class GradingSession {
                 });
             }
             case EXECUTING -> {
-                container.executeDefault().thenAccept((executionResult -> {
+                container.execute().thenAccept((executionResult -> {
+                    logger.debug("" + executionResult);
                     this.executionResult = executionResult;
                     resultFuture.complete(executionResult);
                     setState(State.STOPPING);
@@ -77,6 +77,7 @@ public class GradingSession {
             }
             case STOPPING -> {
                 container.stop().thenAccept(res -> {
+                    logger.debug("" + executionResult);
                     setState(State.FINISHED);
                 }).exceptionally(ex -> {
                     logger.warn("Failed to stop container " + container.getContainerId(), ex);

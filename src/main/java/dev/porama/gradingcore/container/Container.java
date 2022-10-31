@@ -3,7 +3,6 @@ package dev.porama.gradingcore.container;
 import dev.porama.gradingcore.container.data.ExecutionResult;
 
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public interface Container {
@@ -14,7 +13,7 @@ public interface Container {
     CompletableFuture<Void> stop();
 
 
-    CompletableFuture<ExecutionResult> executeDefault();
+    CompletableFuture<ExecutionResult> execute();
     CompletableFuture<ExecutionResult> executeInside(String command);
 
     CompletableFuture<ExecutionResult> executeRaw(String command);

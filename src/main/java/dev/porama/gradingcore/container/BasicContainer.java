@@ -1,6 +1,5 @@
 package dev.porama.gradingcore.container;
 
-import dev.porama.gradingcore.container.data.ContainerTemplate;
 import dev.porama.gradingcore.container.data.ExecutionResult;
 import dev.porama.gradingcore.temp.TempFileService;
 import dev.porama.gradingcore.temp.TemporaryFile;
@@ -14,7 +13,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
@@ -62,7 +60,7 @@ public class BasicContainer implements Container {
 
         executorService.execute(() -> {
             try {
-                String effectiveStartCommand = applyCommandPlaceholders(template.getStartCommand());
+                String effectiveStartCommand = applyCommandPlaceholders(template.getCommand());
                 logger.debug("Starting a container with the command: {}", effectiveStartCommand);
                 Process process = Runtime.getRuntime().exec(effectiveStartCommand);
                 process.waitFor();
@@ -100,8 +98,8 @@ public class BasicContainer implements Container {
     }
 
     @Override
-    public CompletableFuture<ExecutionResult> executeDefault() {
-        return executeInside(template.getRunCommand());
+    public CompletableFuture<ExecutionResult> execute() {
+        return executeInside("echo hi");
     }
 
     @Override
@@ -157,8 +155,9 @@ public class BasicContainer implements Container {
                 throw new RuntimeException(e);
             }
 
-            String effectiveCommand = "docker cp " + temporaryFile.file().getPath() + " " + this.getContainerId() + ":" + template.getWorkingDirectory() + "/" + path.replace(" ", "\\ ");
+            String effectiveCommand = "docker cp " + temporaryFile.file().getPath() + " " + this.getContainerId() + ":" + template.getWorkingDirectory() + path.replace(" ", "\\ ");
             executeRaw(effectiveCommand).thenAccept(result -> {
+                logger.info("Added file " + path + " to container " + this.getContainerId() + ":" + result);
 
                 if (result.stderr().length() > 0) {
                     future.completeExceptionally(new RuntimeException("Execution error: " + effectiveCommand + " -> " + result.stderr()));

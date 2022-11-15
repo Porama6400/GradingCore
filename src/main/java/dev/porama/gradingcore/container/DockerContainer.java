@@ -26,6 +26,7 @@ public class BasicContainer implements Container {
     @Getter
     @Nullable
     private String containerId = null;
+    private Process monitorProcess;
 
     public BasicContainer(ContainerTemplate template, ExecutorService executorService, TempFileService tempFileService) {
         this.template = template;
@@ -81,7 +82,21 @@ public class BasicContainer implements Container {
     }
 
     @Override
-    public CompletableFuture<Void> stop() {
+    public CompletableFuture<Void> attach() {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        executorService.submit(() -> {
+            try {
+                monitorProcess = Runtime.getRuntime().exec("docker attach " + getContainerId());
+                future.complete(null);
+            } catch (Exception ex) {
+                future.completeExceptionally(ex);
+            }
+        });
+        return future;
+    }
+
+    @Override
+    public CompletableFuture<Void> kill() {
         CompletableFuture<Void> future = new CompletableFuture<>();
 
         executorService.execute(() -> {
@@ -98,13 +113,22 @@ public class BasicContainer implements Container {
     }
 
     @Override
-    public CompletableFuture<ExecutionResult> execute() {
-        return executeInside("echo hi");
+    public CompletableFuture<ExecutionResult> executeInside(String command) {
+        return executeRaw("docker exec " + this.getContainerId() + " " + command);
     }
 
     @Override
-    public CompletableFuture<ExecutionResult> executeInside(String command) {
-        return executeRaw("docker exec " + this.getContainerId() + " " + command);
+    public CompletableFuture<Void> sendInput(String input) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        executorService.submit(() -> {
+            try {
+                monitorProcess.getOutputStream().write(input.getBytes());
+                future.complete(null);
+            } catch (IOException e) {
+                future.completeExceptionally(e);
+            }
+        });
+        return future;
     }
 
     @Override

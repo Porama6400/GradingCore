@@ -1,0 +1,19 @@
+open module GradingCore.core.main {
+    requires lombok;
+    requires org.jetbrains.annotations;
+    requires com.google.gson;
+    requires org.slf4j;
+    requires ch.qos.logback.classic;
+    requires com.rabbitmq.client;
+    requires java.net.http;
+    requires java.scripting;
+
+    requires GradingCore.common.main;
+
+    exports dev.porama.gradingcore.core;
+    exports dev.porama.gradingcore.core.container.data;
+    exports dev.porama.gradingcore.core.utils;
+    exports dev.porama.gradingcore.core.container;
+    exports dev.porama.gradingcore.core.temp;
+    exports dev.porama.gradingcore.core.config;
+}

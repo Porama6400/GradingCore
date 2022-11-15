@@ -1,0 +1,11 @@
+{
+  "templates": [
+    {
+      "id": "java",
+      "imageId": "grader-java",
+      "workingDirectory": "/home/grader/",
+      "command": "docker run -d --cap-drop ALL --cap-add SETUID --cap-add SETGID --cap-add FOWNER --cpus 1 --ulimit nproc=32 --ulimit nofile=64 %image% sh entrypoint.sh",
+      "timeLimitHard": 3000
+    }
+  ]
+}

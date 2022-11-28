@@ -1,6 +1,7 @@
 package dev.porama.gradingcore.core;
 
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
+import dev.porama.gradingcore.core.grader.data.GradingResult;
 import dev.porama.gradingcore.core.utils.ConfigUtils;
 
 import java.io.IOException;
@@ -22,19 +23,20 @@ public class Main {
         gradingCore.start();
         String exampleRequest = """
                   {
-                  "type": "java",
-                  "fileSources": [
+                  "type": "c",
+                  "filesSource": [
                     {
-                      "name": "Main.java",
-                      "sourceType": "BASE64",
-                      "payload": "cHVibGljIGNsYXNzIE1haW57CiAgICBwdWJsaWMgc3RhdGljIHZvaWQgbWFpbihTdHJpbmdbXSBhcmdzKXsKICAgICAgICBTeXN0ZW0ub3V0LnByaW50bG4oIkhlbGxvIHdvcmxkISIpOwogICAgfQp9"
+                      "name": "main.c",
+                      "sourceType": "STRING",
+                      "payload": "#include <stdio.h>\\nint main(){ printf(\\"Hello!\\"); }"
                     }
                   ]
                 }
                            
                 """;
         GradingRequest request = ConfigUtils.fromJson(exampleRequest, GradingRequest.class);
-        gradingCore.getGraderService().submit(request).join();
+        GradingResult join = gradingCore.getGraderService().submit(request).join();
+        System.out.println(ConfigUtils.toJson(join));
         gradingCore.shutdown();
     }
 }

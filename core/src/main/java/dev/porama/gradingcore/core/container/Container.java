@@ -1,7 +1,9 @@
 package dev.porama.gradingcore.core.container;
 
 import dev.porama.gradingcore.core.container.data.ExecutionResult;
+import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -17,6 +19,10 @@ public interface Container {
     CompletableFuture<ExecutionResult> executeInside(String command);
 
     CompletableFuture<Void> sendInput(String input);
+
+    @Nullable String readOutputNow() throws IOException;
+
+    CompletableFuture<@Nullable String> readOutput(int timeout);
 
     CompletableFuture<Void> addFiles(Map<String, byte[]> files);
 

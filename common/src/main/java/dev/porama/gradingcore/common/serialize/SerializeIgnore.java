@@ -1,4 +1,4 @@
-package dev.porama.gradingcore.core.utils;
+package dev.porama.gradingcore.common.serialize;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

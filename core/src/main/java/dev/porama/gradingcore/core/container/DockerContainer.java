@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -131,6 +132,42 @@ public class DockerContainer implements Container {
         return future;
     }
 
+    @Override
+    @Nullable
+    public String readOutputNow() throws IOException {
+        InputStream inputStream = monitorProcess.getInputStream();
+        if (inputStream.available() == 0) return null;
+        return new String(inputStream.readNBytes(inputStream.available()));
+    }
+
+    @Override
+    public CompletableFuture<@Nullable String> readOutput(int timeout) {
+        CompletableFuture<String> future = new CompletableFuture<>();
+        executorService.submit(() -> {
+            long timeoutThreshold = System.currentTimeMillis() + timeout;
+            while (System.currentTimeMillis() < timeoutThreshold) {
+                logger.debug("readOutputTick");
+                try {
+                    String output = readOutputNow();
+                    logger.debug("Out: " + output);
+                    if (output != null) {
+                        future.complete(output);
+                        return;
+                    } else {
+                        Thread.sleep(100);
+                    }
+                } catch (IOException | InterruptedException e) {
+                    logger.debug("readOutputError", e);
+                    future.completeExceptionally(e);
+                    return;
+                }
+            }
+            logger.debug("readOutputTimeout");
+            future.completeExceptionally(new RuntimeException("Timeout while waiting for execution daemon stdout"));
+        });
+        return future;
+    }
+
     public CompletableFuture<ExecutionResult> executeRaw(String command) {
         CompletableFuture<ExecutionResult> future = new CompletableFuture<>();
 
@@ -211,7 +248,7 @@ public class DockerContainer implements Container {
             TemporaryFile temporaryFile = tempFileService.allocate();
 
             String effectiveCommand = "docker cp " +
-                                      this.getContainerId() + ":" + template.getWorkingDirectory() + "/" + path.replace(" ", "\\ ") + " " +
+                                      this.getContainerId() + ":" + template.getWorkingDirectory() + path.replace(" ", "\\ ") + " " +
                                       temporaryFile.file().getPath();
 
             executeRaw(effectiveCommand).thenAccept(result -> {

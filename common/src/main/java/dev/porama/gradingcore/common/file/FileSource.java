@@ -29,18 +29,7 @@ public class FileSource {
         return sourceType;
     }
 
-    public byte[] getData() {
-        return switch (sourceType) {
-            case BASE64 -> Base64.getDecoder().decode(payload);
-            case STRING -> payload.getBytes();
-        };
-    }
-
-    public String getDataString() {
-        if (sourceType == FileSourceType.STRING) {
-            return payload;
-        } else {
-            return new String(getData());
-        }
+    public String getPayload() {
+        return payload;
     }
 }

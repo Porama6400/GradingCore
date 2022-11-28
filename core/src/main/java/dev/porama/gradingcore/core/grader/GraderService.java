@@ -2,9 +2,9 @@ package dev.porama.gradingcore.core.grader;
 
 import dev.porama.gradingcore.core.config.TemplateService;
 import dev.porama.gradingcore.core.container.ContainerTemplate;
-import dev.porama.gradingcore.core.messenger.Messenger;
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
+import dev.porama.gradingcore.core.messenger.Messenger;
 import dev.porama.gradingcore.core.temp.TempFileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,17 +17,15 @@ import java.util.concurrent.*;
 public class GraderService {
 
     private final TemplateService templateService;
-    private final Messenger messenger;
     private final List<GradingSession> sessionList = new ArrayList<>();
-    private ExecutorService executingThreadPool = Executors.newCachedThreadPool();
-    private ScheduledExecutorService schedulingThreadPool = Executors.newScheduledThreadPool(1);
-    private TempFileService tempFileService = new TempFileService(new File("temp"));
+    private final ExecutorService executingThreadPool = Executors.newCachedThreadPool();
+    private final ScheduledExecutorService schedulingThreadPool = Executors.newScheduledThreadPool(1);
+    private final TempFileService tempFileService = new TempFileService(new File("temp"));
 
-    private Logger logger = LoggerFactory.getLogger(GraderService.class);
+    private final Logger logger = LoggerFactory.getLogger(GraderService.class);
 
     public GraderService(TemplateService templateService, Messenger messenger) {
         this.templateService = templateService;
-        this.messenger = messenger;
 
         schedulingThreadPool.scheduleAtFixedRate(this::tick, 1, 1, TimeUnit.SECONDS);
     }
@@ -53,7 +51,7 @@ public class GraderService {
             return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid template " + request.getType()));
         }
 
-        GradingSession gradingSession = new GradingSession(config, request.getFiles(), executingThreadPool, tempFileService);
+        GradingSession gradingSession = new GradingSession(config, request, executingThreadPool, tempFileService);
         return submit(gradingSession);
     }
 
@@ -62,10 +60,8 @@ public class GraderService {
             sessionList.add(session);
         }
 
-        return session.getResultFuture().thenApply((executionResult -> {
-            return new GradingResult();
-            //TODO do a real grading
-        }));
+        //TODO calculate score
+        return session.getResultFuture();
     }
 
     public void handle(GradingRequest message) {

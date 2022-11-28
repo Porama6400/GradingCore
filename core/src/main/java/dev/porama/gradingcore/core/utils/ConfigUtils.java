@@ -1,9 +1,8 @@
 package dev.porama.gradingcore.core.utils;
 
-import com.google.gson.ExclusionStrategy;
-import com.google.gson.FieldAttributes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import dev.porama.gradingcore.common.serialize.SerializeIgnoreStrategy;
 
 import java.io.*;
 import java.lang.reflect.Type;
@@ -11,17 +10,7 @@ import java.util.Objects;
 
 public class ConfigUtils {
 
-    public static final Gson GSON = new GsonBuilder().setPrettyPrinting().setExclusionStrategies(new ExclusionStrategy() {
-        @Override
-        public boolean shouldSkipField(FieldAttributes f) {
-            return f.getAnnotation(SerializeIgnore.class) != null;
-        }
-
-        @Override
-        public boolean shouldSkipClass(Class<?> clazz) {
-            return false;
-        }
-    }).create();
+    public static final Gson GSON = new GsonBuilder().setPrettyPrinting().setExclusionStrategies(new SerializeIgnoreStrategy()).create();
 
     public static void assertExists(File file) {
         assertExists(file, "/" + file.getName());

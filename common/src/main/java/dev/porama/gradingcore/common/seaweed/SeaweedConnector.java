@@ -41,49 +41,27 @@ public class SeaweedConnector {
     }
 
     public CompletableFuture<AllocationResponse> uploadFile(URI master, @Nullable Map<String, String> parameters, String fileName, byte[] data) {
-        CompletableFuture<AllocationResponse> future = new CompletableFuture<>();
-        allocateFile(master, parameters).thenAccept(response -> {
+        return allocateFile(master, parameters).thenCompose(response -> {
             try {
-                postFileUrl(
+                return postFileUrl(
                         new URI(getProtocolString() + "://" + response.getPublicUrlString() + "/" + response.getFileId()),
                         fileName,
                         data
-                ).thenAccept(result -> {
-                    future.complete(response);
-
-                }).exceptionally(ex -> {
-                    future.completeExceptionally(ex);
-                    return null;
-
-                });
-            } catch (IOException | URISyntaxException ex) {
-                future.completeExceptionally(ex);
-
+                ).thenApply(res -> response);
+            } catch (IOException | URISyntaxException e) {
+                throw new RuntimeException(e);
             }
-        }).exceptionally(ex -> {
-            future.completeExceptionally(ex);
-            return null;
-
         });
-        return future;
     }
 
     public CompletableFuture<byte[]> downloadFile(URI master, String token) {
-        CompletableFuture<byte[]> future = new CompletableFuture<>();
-        locateFile(master, token).thenAccept(locateResponse -> {
+        return locateFile(master, token).thenCompose(locateResponse -> {
             try {
-                getFileUrl(new URI(getProtocolString() + "://" + locateResponse.getPublicUrl() + "/" + token))
-                        .thenAccept(future::complete)
-                        .exceptionally(ex -> {
-                            future.completeExceptionally(ex);
-                            return null;
-                        });
-
+                return getFileUrl(new URI(getProtocolString() + "://" + locateResponse.getPublicUrl() + "/" + token));
             } catch (URISyntaxException e) {
-                future.completeExceptionally(e);
+                throw new RuntimeException(e);
             }
         });
-        return future;
     }
 
     public CompletableFuture<AllocationResponse> allocateFile(URI master) {

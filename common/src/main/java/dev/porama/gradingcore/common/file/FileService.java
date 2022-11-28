@@ -28,9 +28,9 @@ public class FileService {
             case BASE64 -> {
                 return CompletableFuture.supplyAsync(() -> Base64.getDecoder().decode(file.getPayload()), executorService);
             }
-            case SEAWEED -> {
+//            case SEAWEED -> {
 //                return seaweedConnector.downloadFile();
-            }
+//            }
             case URL -> {
                 return seaweedConnector.getFileUrl(URI.create(file.getPayload()));
             }

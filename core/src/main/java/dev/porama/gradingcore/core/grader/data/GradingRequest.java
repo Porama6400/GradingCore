@@ -1,5 +1,6 @@
 package dev.porama.gradingcore.core.grader.data;
 
+import dev.porama.gradingcore.common.file.FileService;
 import dev.porama.gradingcore.common.file.FileSource;
 import lombok.Data;
 
@@ -7,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Data
 public class GradingRequest {
@@ -18,9 +20,7 @@ public class GradingRequest {
         files.forEach((key, value) -> filesSource.add(FileSource.base64(key, value)));
     }
 
-    public Map<String, byte[]> getFiles() {
-        Map<String, byte[]> files = new HashMap<>();
-        filesSource.forEach(entry -> files.put(entry.getName(), entry.getData()));
-        return files;
+    public List<FileSource> getFilesSource() {
+        return filesSource;
     }
 }

@@ -1,10 +1,11 @@
 package dev.porama.gradingcore.core.grader;
 
+import dev.porama.gradingcore.common.file.FileService;
+import dev.porama.gradingcore.common.seaweed.SeaweedConnector;
 import dev.porama.gradingcore.core.config.TemplateService;
 import dev.porama.gradingcore.core.container.ContainerTemplate;
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
-import dev.porama.gradingcore.core.messenger.Messenger;
 import dev.porama.gradingcore.core.temp.TempFileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,9 +23,12 @@ public class GraderService {
     private final ScheduledExecutorService schedulingThreadPool = Executors.newScheduledThreadPool(1);
     private final TempFileService tempFileService = new TempFileService(new File("temp"));
 
+    private final SeaweedConnector seaweedConnector = new SeaweedConnector(executingThreadPool);
+    private final FileService fileService = new FileService(executingThreadPool, seaweedConnector);
+
     private final Logger logger = LoggerFactory.getLogger(GraderService.class);
 
-    public GraderService(TemplateService templateService, Messenger messenger) {
+    public GraderService(TemplateService templateService) {
         this.templateService = templateService;
 
         schedulingThreadPool.scheduleAtFixedRate(this::tick, 1, 1, TimeUnit.SECONDS);
@@ -51,7 +55,7 @@ public class GraderService {
             return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid template " + request.getType()));
         }
 
-        GradingSession gradingSession = new GradingSession(config, request, executingThreadPool, tempFileService);
+        GradingSession gradingSession = new GradingSession(config, request, executingThreadPool, tempFileService, fileService);
         return submit(gradingSession);
     }
 
@@ -62,10 +66,6 @@ public class GraderService {
 
         //TODO calculate score
         return session.getResultFuture();
-    }
-
-    public void handle(GradingRequest message) {
-
     }
 
     public void shutdown() {

@@ -6,7 +6,6 @@ open module GradingCore.core.main {
     requires ch.qos.logback.classic;
     requires com.rabbitmq.client;
     requires java.net.http;
-    requires java.scripting;
 
     requires GradingCore.common.main;
 

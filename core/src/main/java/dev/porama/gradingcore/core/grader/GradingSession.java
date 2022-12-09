@@ -1,5 +1,7 @@
 package dev.porama.gradingcore.core.grader;
 
+import dev.porama.gradingcore.common.file.FileService;
+import dev.porama.gradingcore.common.file.FileSource;
 import dev.porama.gradingcore.core.container.Container;
 import dev.porama.gradingcore.core.container.ContainerTemplate;
 import dev.porama.gradingcore.core.container.DockerContainer;
@@ -10,12 +12,15 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class GradingSession {
     @Getter
     private final Container container;
+    private final FileService fileService;
     @Getter
     private final GradingRequest gradingRequest;
     @Getter
@@ -33,11 +38,12 @@ public class GradingSession {
     @Getter
     private long stateStartTime = System.currentTimeMillis();
 
-    public GradingSession(ContainerTemplate template, GradingRequest gradingRequest, ExecutorService workerExecutor, TempFileService tempFileService) {
+    public GradingSession(ContainerTemplate template, GradingRequest gradingRequest, ExecutorService workerExecutor, TempFileService tempFileService, FileService fileService) {
         this.gradingRequest = gradingRequest;
         this.tempFileService = tempFileService;
         this.template = template;
         this.container = new DockerContainer(this.template, workerExecutor, this.tempFileService);
+        this.fileService = fileService;
     }
 
     public void setState(State state) {
@@ -83,23 +89,39 @@ public class GradingSession {
                             return null;
                         });
             }
+            case LOADING_FILES -> {
+
+                setState(State.LOADING_FILES_WAIT);
+            }
             case ADDING_FILES -> {
                 setState(State.ADDING_FILES_WAIT);
-                container.addFiles(gradingRequest.getFiles()).thenAccept((res) -> {
-                    logger.debug("Added file " + res);
-//                    container.sendInput("\n");
-                    setState(State.EXECUTING);
-                }).exceptionally(ex -> {
-                    logger.warn("Failed to add files to " + container.getContainerId(), ex);
-                    resultFuture.completeExceptionally(ex);
+                List<FileSource> fileSources = gradingRequest.getFilesSource();
+                AtomicInteger fileCounter = new AtomicInteger(fileSources.size());
 
-                    container.kill().exceptionally(killException -> {
-                        logger.error("Failed to kill container " + container.getContainerId(), killException);
+                fileSources.forEach(source -> {
+                    fileService.read(source).thenAccept(data -> {
+                        container.addFile(source.getName(), data).thenAccept(ignored -> {
+                            logger.debug("Added file " + source.getName() + " to " + container.getContainerId());
+                            fileCounter.decrementAndGet();
+                            if (fileCounter.get() == 0) {
+                                setState(State.EXECUTING);
+                            }
+                        }).exceptionally(ex -> {
+                            logger.error("Failed reading file " + source.getName() + " for " + container.getContainerId(), ex);
+                            fileCounter.decrementAndGet();
+                            if (fileCounter.get() == 0) {
+                                setState(State.EXECUTING);
+                            }
+                            return null;
+                        });
+                    }).exceptionally(ex -> {
+                        logger.error("Failed reading file " + source.getName() + " for " + container.getContainerId(), ex);
+                        fileCounter.decrementAndGet();
+                        if (fileCounter.get() == 0) {
+                            setState(State.EXECUTING);
+                        }
                         return null;
                     });
-
-                    setState(State.FINISHED);
-                    return null;
                 });
             }
             case EXECUTING -> {
@@ -158,6 +180,8 @@ public class GradingSession {
         STARTING_WAIT,
         ATTACH,
         ATTACH_WAIT,
+        LOADING_FILES,
+        LOADING_FILES_WAIT,
         ADDING_FILES,
         ADDING_FILES_WAIT,
         EXECUTING,

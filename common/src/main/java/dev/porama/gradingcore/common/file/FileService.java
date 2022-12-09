@@ -7,8 +7,12 @@ import lombok.Getter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FileService {
     @Getter
@@ -37,5 +41,26 @@ public class FileService {
         }
 
         throw new SeaweedException("Failed to read file");
+    }
+
+    public CompletableFuture<Map<String, byte[]>> readAll(List<FileSource> sourceList) {
+        CompletableFuture<Map<String, byte[]>> future = new CompletableFuture<>();
+        final Map<String, byte[]> files = new HashMap<>();
+
+        AtomicInteger counter = new AtomicInteger(sourceList.size());
+        sourceList.forEach(source -> {
+            read(source).thenAccept(data -> {
+                synchronized (files) {
+                    files.put(source.getName(), data);
+                }
+                
+                int pending = counter.decrementAndGet();
+                if (pending == 0) {
+                    future.complete(files);
+                }
+            });
+        });
+
+        return future;
     }
 }

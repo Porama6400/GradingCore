@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 @Getter
 public class GradingCore {
@@ -25,11 +27,13 @@ public class GradingCore {
     private TemplateService templateService;
     private GraderService graderService;
     private TempFileService tempFileService;
+    private ScheduledExecutorService masterThreadPool;
 
     public void start() throws IOException, InterruptedException {
         mainConfiguration = ConfigUtils.load(new File("config.json"), MainConfiguration.class);
         tempDirectory = new File("temp");
         tempFileService = new TempFileService(tempDirectory);
+        masterThreadPool = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
 
         logger = LoggerFactory.getLogger(GradingCore.class);
         logger.info("Starting GradingCore");
@@ -46,12 +50,21 @@ public class GradingCore {
 
         templateService = new TemplateService();
 
-        graderService = new GraderService(templateService);
+        graderService = new GraderService(templateService, masterThreadPool);
 
-        messenger = new RabbitMessenger(mainConfiguration.getMessengerUri());
+        messenger = new RabbitMessenger(mainConfiguration.getMessengerUri(), mainConfiguration.getParallelism());
+        masterThreadPool.execute(() -> {
+            try {
+                messenger.listen(req -> graderService.submit(req));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
     public void shutdown() {
         graderService.shutdown();
+        messenger.shutdown();
+        masterThreadPool.shutdown();
     }
 }

@@ -11,14 +11,16 @@ public class ContainerTemplate {
     private String id;
     private String imageId;
     private String command;
+    private long timeLimitState;
     private long timeLimitHard;
     private String workingDirectory;
     private List<String> outputFiles;
 
-    public ContainerTemplate(String id, String imageId, String command, long timeLimitHard, String workingDirectory, List<String> outputFiles) {
+    public ContainerTemplate(String id, String imageId, String command, long timeLimitState, long timeLimitHard, String workingDirectory, List<String> outputFiles) {
         this.id = id;
         this.imageId = imageId;
         this.command = command;
+        this.timeLimitState = timeLimitState;
         this.timeLimitHard = timeLimitHard;
         this.workingDirectory = workingDirectory;
         this.outputFiles = outputFiles;

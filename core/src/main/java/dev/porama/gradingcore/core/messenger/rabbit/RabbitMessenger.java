@@ -1,10 +1,12 @@
 package dev.porama.gradingcore.core.messenger.rabbit;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.rabbitmq.client.*;
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
 import dev.porama.gradingcore.core.messenger.Messenger;
-import dev.porama.gradingcore.core.messenger.message.Message;
 import dev.porama.gradingcore.core.utils.ConfigUtils;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -20,12 +22,13 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
 public class RabbitMessenger implements Messenger {
-    private static final String GRADING_QUEUE_NAME = "grading_queue";
-    private static final String GRADING_RESULT_QUEUE_NAME = "grading_result";
+    private static final String GRADING_QUEUE_NAME = "grading-grade";
+    private static final String GRADING_RESULT_QUEUE_NAME = "grading-result-test";
     @Getter
     private final String uri;
     @Getter
     private final Logger logger;
+    private final int parallelism;
     @Getter
     private ConnectionFactory connectionFactory;
     @Getter
@@ -35,7 +38,8 @@ public class RabbitMessenger implements Messenger {
     @Getter
     private Channel listenerChannel;
 
-    public RabbitMessenger(String uri) {
+    public RabbitMessenger(String uri, int parallelism) {
+        this.parallelism = parallelism;
         logger = LoggerFactory.getLogger(RabbitMessenger.class);
         Objects.requireNonNull(uri);
 
@@ -48,11 +52,14 @@ public class RabbitMessenger implements Messenger {
             connection = connectionFactory.newConnection();
 
             channel = connection.createChannel();
-            channel.exchangeDeclare("grading", BuiltinExchangeType.DIRECT);
-            channel.queueDeclare(GRADING_QUEUE_NAME, false, false, false, null);
-            channel.queueDeclare(GRADING_RESULT_QUEUE_NAME, false, false, false, null);
-            channel.queueBind(GRADING_QUEUE_NAME, "grading", "run");
-            channel.queueBind(GRADING_RESULT_QUEUE_NAME, "grading", "result");
+            try{
+                channel.queueDeclare(GRADING_QUEUE_NAME, false, false, false, null);
+                channel.queueDeclare(GRADING_RESULT_QUEUE_NAME, false, false, false, null);
+            }
+            catch (Exception ignored){
+
+            }
+
             listenerChannel = connection.createChannel();
             listenerChannel.basicQos(1);
 
@@ -64,16 +71,26 @@ public class RabbitMessenger implements Messenger {
         }
     }
 
+    @Override
     public void listen(Function<GradingRequest, CompletableFuture<GradingResult>> requestConsumer) throws IOException {
-        listenerChannel.basicQos(1);
+        listenerChannel.basicQos(parallelism);
         listenerChannel.basicConsume(GRADING_QUEUE_NAME, false, new DefaultConsumer(listenerChannel) {
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-                GradingRequest request = ConfigUtils.fromJson(body, GradingRequest.class);
+                GradingRequest request;
+                try {
+                    request = ConfigUtils.fromJson(body, GradingRequest.class);
+                } catch (Exception ex) {
+                    listenerChannel.basicAck(envelope.getDeliveryTag(), false);
+                    return;
+                }
+
+                logger.info(ConfigUtils.toJson(request));
                 CompletableFuture<GradingResult> future = requestConsumer.apply(request);
                 future.thenAccept((result) -> {
                     try {
-                        // TODO publish result
+                        publishResult(result);
+                        logger.debug("ACK");
                         listenerChannel.basicAck(envelope.getDeliveryTag(), false);
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -81,9 +98,12 @@ public class RabbitMessenger implements Messenger {
                     }
 
                 }).exceptionally((ex) -> {
+                    ex.printStackTrace();
                     try {
-                        listenerChannel.basicAck(envelope.getDeliveryTag(), false);
+                        logger.debug("NACK");
+                        listenerChannel.basicNack(envelope.getDeliveryTag(), false, true);
                     } catch (IOException e) {
+                        e.printStackTrace();
                         throw new RuntimeException(e);
                     }
                     return null;
@@ -95,7 +115,24 @@ public class RabbitMessenger implements Messenger {
     }
 
     @Override
-    public void publish(Message message) {
+    public void publishResult(GradingResult result) throws IOException {
+        String string = ConfigUtils.toJson(result);
+        channel.basicPublish("", GRADING_RESULT_QUEUE_NAME, null, string.getBytes());
+    }
 
+    @Override
+    public void shutdown() {
+        try {
+            if (listenerChannel != null)
+                listenerChannel.close();
+
+            if (channel != null)
+                channel.close();
+
+            if (connection != null)
+                connection.close();
+        } catch (IOException | TimeoutException e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class GradingSession {
@@ -37,6 +38,9 @@ public class GradingSession {
     private State state = State.STARTING;
     @Getter
     private long stateStartTime = System.currentTimeMillis();
+    @Getter
+    private long startTime = System.currentTimeMillis();
+
 
     public GradingSession(ContainerTemplate template, GradingRequest gradingRequest, ExecutorService workerExecutor, TempFileService tempFileService, FileService fileService) {
         this.gradingRequest = gradingRequest;
@@ -44,6 +48,8 @@ public class GradingSession {
         this.template = template;
         this.container = new DockerContainer(this.template, workerExecutor, this.tempFileService);
         this.fileService = fileService;
+
+        gradingResult.setSubmissionId(gradingRequest.getSubmissionId());
     }
 
     public void setState(State state) {
@@ -52,29 +58,42 @@ public class GradingSession {
         this.state = state;
     }
 
+    public long getRunningTime() {
+        return System.currentTimeMillis() - this.startTime;
+    }
+
     public long getStateTime() {
         return System.currentTimeMillis() - this.stateStartTime;
     }
 
     public void tick() {
 
-        if (getStateTime() > 10000) {
-            logger.error("Container state timeout: " + container.getContainerId() + " at " + state);
+        if (getRunningTime() > template.getTimeLimitHard()) {
+            logger.debug("Container " + container.getContainerId() + " timed out");
             setState(State.FINISHED);
             container.kill();
-            resultFuture.completeExceptionally(new RuntimeException("State timeout"));
+            resultFuture.completeExceptionally(new TimeoutException("Execution timeout"));
+            return;
+        }
+
+        if (getStateTime() > template.getTimeLimitState()) {
+            logger.error("Container state timeout: " + container.getContainerId() + " at " + state);
+            setState(State.FINISHING);
+            container.kill();
+            resultFuture.completeExceptionally(new TimeoutException("State timeout"));
             return;
         }
 
         switch (state) {
             case STARTING -> {
                 setState(State.STARTING_WAIT);
+                this.startTime = System.currentTimeMillis();
                 container.start()
                         .thenAccept(res -> setState(State.ATTACH))
                         .exceptionally(ex -> {
                             logger.warn("Failed to start container " + container.getContainerId(), ex);
                             resultFuture.completeExceptionally(ex);
-                            setState(State.FINISHED);
+                            setState(State.FINISHING);
                             return null;
                         });
             }
@@ -85,13 +104,9 @@ public class GradingSession {
                         .exceptionally(ex -> {
                             logger.warn("Failed to attach to container " + container.getContainerId(), ex);
                             resultFuture.completeExceptionally(ex);
-                            setState(State.FINISHED);
+                            setState(State.FINISHING);
                             return null;
                         });
-            }
-            case LOADING_FILES -> {
-
-                setState(State.LOADING_FILES_WAIT);
             }
             case ADDING_FILES -> {
                 setState(State.ADDING_FILES_WAIT);
@@ -145,14 +160,14 @@ public class GradingSession {
                         logger.debug("File " + filePath + ":" + new String(result));
 
                         if (gradingResult.getFiles().size() == template.getOutputFiles().size()) {
-                            setState(State.FINISHED);
+                            setState(State.FINISHING);
                         }
 
                     }).exceptionally(error -> {
                         gradingResult.getFiles().put(filePath, null);
 
                         if (gradingResult.getFiles().size() == template.getOutputFiles().size()) {
-                            setState(State.FINISHED);
+                            setState(State.FINISHING);
                         }
                         return null;
                     });
@@ -161,12 +176,24 @@ public class GradingSession {
             case SAVING_WAIT -> {
                 if (getStateTime() > 3000) {
                     logger.error("Timeout saving files");
-                    setState(State.FINISHED);
+                    setState(State.FINISHING);
                 }
             }
-            case FINISHED -> {
-                container.addFile("done.lock", new byte[0]);
+            case FINISHING -> {
+                container.addFile("done.lock", new byte[0]).handle((res, ex) -> {
+                    setState(State.FINISHED);
+                    return null;
+                });
                 resultFuture.complete(gradingResult);
+                setState(State.FINISHING_WAIT);
+            }
+            case FINISHED -> {
+                container.kill().thenAccept(res -> {
+                    logger.debug("Container " + container.getContainerId() + " is killed");
+                }).exceptionally(ignored -> {
+                    logger.debug("Container " + container.getContainerId() + " is shutdown gracefully");
+                    return null;
+                });
             }
         }
     }
@@ -180,14 +207,14 @@ public class GradingSession {
         STARTING_WAIT,
         ATTACH,
         ATTACH_WAIT,
-        LOADING_FILES,
-        LOADING_FILES_WAIT,
         ADDING_FILES,
         ADDING_FILES_WAIT,
         EXECUTING,
         EXECUTING_WAIT,
         SAVING,
         SAVING_WAIT,
+        FINISHING,
+        FINISHING_WAIT,
         FINISHED
     }
 }

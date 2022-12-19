@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -19,19 +20,17 @@ public class GraderService {
 
     private final TemplateService templateService;
     private final List<GradingSession> sessionList = new ArrayList<>();
-    private final ExecutorService executingThreadPool = Executors.newCachedThreadPool();
-    private final ScheduledExecutorService schedulingThreadPool = Executors.newScheduledThreadPool(1);
+    private final ExecutorService gradingServiceThreadPool = Executors.newCachedThreadPool();
     private final TempFileService tempFileService = new TempFileService(new File("temp"));
-
-    private final SeaweedConnector seaweedConnector = new SeaweedConnector(executingThreadPool);
-    private final FileService fileService = new FileService(executingThreadPool, seaweedConnector);
+    private final SeaweedConnector seaweedConnector = new SeaweedConnector(gradingServiceThreadPool);
+    private final FileService fileService = new FileService(gradingServiceThreadPool, seaweedConnector);
 
     private final Logger logger = LoggerFactory.getLogger(GraderService.class);
 
-    public GraderService(TemplateService templateService) {
+    public GraderService(TemplateService templateService, ScheduledExecutorService masterThreadPool) {
         this.templateService = templateService;
 
-        schedulingThreadPool.scheduleAtFixedRate(this::tick, 1, 1, TimeUnit.SECONDS);
+        masterThreadPool.scheduleAtFixedRate(this::tick, 1, 1, TimeUnit.SECONDS);
     }
 
     public void tick() {
@@ -55,7 +54,7 @@ public class GraderService {
             return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid template " + request.getType()));
         }
 
-        GradingSession gradingSession = new GradingSession(config, request, executingThreadPool, tempFileService, fileService);
+        GradingSession gradingSession = new GradingSession(config, request, gradingServiceThreadPool, tempFileService, fileService);
         return submit(gradingSession);
     }
 
@@ -69,6 +68,7 @@ public class GraderService {
     }
 
     public void shutdown() {
+        logger.info("Shutting down");
         while (sessionList.size() > 0) {
             try {
                 Thread.sleep(1000);
@@ -76,7 +76,7 @@ public class GraderService {
                 throw new RuntimeException(e);
             }
         }
-        schedulingThreadPool.shutdown();
-        executingThreadPool.shutdown();
+        gradingServiceThreadPool.shutdown();
+        tempFileService.shutdown();
     }
 }

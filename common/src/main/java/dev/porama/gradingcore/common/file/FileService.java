@@ -32,9 +32,9 @@ public class FileService {
             case BASE64 -> {
                 return CompletableFuture.supplyAsync(() -> Base64.getDecoder().decode(file.getPayload()), executorService);
             }
-//            case SEAWEED -> {
-//                return seaweedConnector.downloadFile();
-//            }
+            case SEAWEED -> {
+                return seaweedConnector.downloadFile(file.getPayload());
+            }
             case URL -> {
                 return seaweedConnector.getFileUrl(URI.create(file.getPayload()));
             }
@@ -53,7 +53,7 @@ public class FileService {
                 synchronized (files) {
                     files.put(source.getName(), data);
                 }
-                
+
                 int pending = counter.decrementAndGet();
                 if (pending == 0) {
                     future.complete(files);

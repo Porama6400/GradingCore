@@ -1,4 +1,5 @@
 {
   "debug": true,
-  "messengerUri": "amqp://admin:password@localhost:5672"
+  "messengerUri": "amqp://localhost:5672",
+  "parallelism": 8
 }

@@ -74,4 +74,8 @@ public class TempFileService {
 
         if (!file.delete()) throw new IOException("Unable to delete file " + file.getAbsolutePath());
     }
+
+    public void shutdown() {
+
+    }
 }

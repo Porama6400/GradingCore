@@ -21,11 +21,17 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class SeaweedConnector {
     private final HttpClient client;
+    private final URI masterUri;
     private final Gson gson = new GsonBuilder().create();
     private boolean useTls = false;
 
     public SeaweedConnector(ExecutorService executor) {
+        this(executor, null);
+    }
+
+    public SeaweedConnector(ExecutorService executor, URI masterUri) {
         client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(10)).executor(executor).build();
+        this.masterUri = masterUri;
     }
 
     public static String randomHex(int length) {
@@ -40,8 +46,8 @@ public class SeaweedConnector {
         return useTls ? "https" : "http";
     }
 
-    public CompletableFuture<AllocationResponse> uploadFile(URI master, @Nullable Map<String, String> parameters, String fileName, byte[] data) {
-        return allocateFile(master, parameters).thenCompose(response -> {
+    public CompletableFuture<AllocationResponse> uploadFile(@Nullable Map<String, String> parameters, String fileName, byte[] data) {
+        return allocateFile(parameters).thenCompose(response -> {
             try {
                 return postFileUrl(
                         new URI(getProtocolString() + "://" + response.getPublicUrlString() + "/" + response.getFileId()),
@@ -54,8 +60,8 @@ public class SeaweedConnector {
         });
     }
 
-    public CompletableFuture<byte[]> downloadFile(URI master, String token) {
-        return locateFile(master, token).thenCompose(locateResponse -> {
+    public CompletableFuture<byte[]> downloadFile(String token) {
+        return locateFile(token).thenCompose(locateResponse -> {
             try {
                 return getFileUrl(new URI(getProtocolString() + "://" + locateResponse.getPublicUrl() + "/" + token));
             } catch (URISyntaxException e) {
@@ -64,12 +70,12 @@ public class SeaweedConnector {
         });
     }
 
-    public CompletableFuture<AllocationResponse> allocateFile(URI master) {
-        return allocateFile(master, null);
+    public CompletableFuture<AllocationResponse> allocateFile() {
+        return allocateFile(null);
     }
 
-    public CompletableFuture<AllocationResponse> allocateFile(URI master, @Nullable Map<String, String> parameters) {
-        HttpRequest httpRequest = HttpRequest.newBuilder(master.resolve("dir/assign" + URIUtils.serializeParameters(parameters))).GET().build();
+    public CompletableFuture<AllocationResponse> allocateFile(@Nullable Map<String, String> parameters) {
+        HttpRequest httpRequest = HttpRequest.newBuilder(masterUri.resolve("dir/assign" + URIUtils.serializeParameters(parameters))).GET().build();
         return client.sendAsync(httpRequest, HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
             if (response.statusCode() / 100 != 2) {
                 throw new RuntimeException("Server responded with " + response);
@@ -78,8 +84,8 @@ public class SeaweedConnector {
         });
     }
 
-    public CompletableFuture<LocateResponse> locateFile(URI master, String token) {
-        HttpRequest request = HttpRequest.newBuilder(master.resolve("dir/lookup?volumeId=" + token)).GET().build();
+    public CompletableFuture<LocateResponse> locateFile(String token) {
+        HttpRequest request = HttpRequest.newBuilder(masterUri.resolve("dir/lookup?volumeId=" + token)).GET().build();
         return client.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenApply(response -> {
             String bodyString = response.body();
             JsonArray locations = JsonParser.parseString(bodyString).getAsJsonObject().getAsJsonArray("locations");

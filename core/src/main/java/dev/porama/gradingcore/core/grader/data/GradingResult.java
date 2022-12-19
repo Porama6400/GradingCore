@@ -8,5 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Data
 public class GradingResult  {
+    private String submissionId;
     private Map<String, byte[]> files = new ConcurrentHashMap<>();
 }

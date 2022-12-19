@@ -1,19 +1,19 @@
 package dev.porama.gradingcore.core.grader.data;
 
-import dev.porama.gradingcore.common.file.FileService;
 import dev.porama.gradingcore.common.file.FileSource;
 import lombok.Data;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 @Data
 public class GradingRequest {
-    public String type;
-    public List<FileSource> filesSource = new ArrayList<>();
+    private String type;
+    private String submissionId;
+    private long softLimitMemory;
+    private long softLimitTime;
+    private List<FileSource> filesSource = new ArrayList<>();
 
     public GradingRequest(String type, Map<String, byte[]> files) {
         this.type = type;

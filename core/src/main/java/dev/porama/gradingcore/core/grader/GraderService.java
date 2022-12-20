@@ -39,7 +39,7 @@ public class GraderService {
                 try {
                     entry.tick();
                 } catch (Exception ex) {
-                    logger.error("Failed ticking session " + entry.getContainer().getContainerId(), ex);
+                    logger.error("Unhandled error ticking grading for submission " + entry.getGradingRequest().getSubmissionId(), ex);
                 }
             });
             sessionList.removeIf(GradingSession::isFinished);
@@ -63,7 +63,6 @@ public class GraderService {
             sessionList.add(session);
         }
 
-        //TODO calculate score
         return session.getResultFuture();
     }
 

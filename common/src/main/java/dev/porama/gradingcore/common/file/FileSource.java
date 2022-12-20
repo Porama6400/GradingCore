@@ -5,12 +5,12 @@ import java.util.Base64;
 public class FileSource {
     private final String name;
     private final FileSourceType sourceType;
-    private final String payload;
+    private final String source;
 
-    public FileSource(String name, FileSourceType sourceType, String payload) {
+    public FileSource(String name, FileSourceType sourceType, String source) {
         this.name = name;
         this.sourceType = sourceType;
-        this.payload = payload;
+        this.source = source;
     }
 
     public static FileSource base64(String name, byte[] data) {
@@ -29,7 +29,7 @@ public class FileSource {
         return sourceType;
     }
 
-    public String getPayload() {
-        return payload;
+    public String getSource() {
+        return source;
     }
 }

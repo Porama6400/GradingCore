@@ -28,7 +28,9 @@ public class TempFileService {
     public synchronized void free(TemporaryFile file) throws IOException {
         if (!fileSet.contains(file)) throw new IllegalArgumentException("Tried to free non-existing temporary file");
 
-        if (!file.file().delete()) throw new IOException("Unable to delete file " + file.file().getAbsolutePath());
+        if (file.file().exists())
+            if (!file.file().delete()) throw new IOException("Unable to delete file " + file.file().getAbsolutePath());
+
         fileSet.remove(file);
     }
 
@@ -54,7 +56,7 @@ public class TempFileService {
     public synchronized void freeDirectory(TemporaryFile directory) throws IOException {
         if (!directorySet.contains(directory))
 
-        deleteDirectory(directory.file());
+            deleteDirectory(directory.file());
         directorySet.remove(directory);
     }
 

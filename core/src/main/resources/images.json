@@ -6,11 +6,9 @@
       "workingDirectory": "/home/grader/",
       "command": "docker run --rm -d --cap-drop ALL --cap-add SETUID --cap-add SETGID --cap-add FOWNER --cpus 1 --ulimit nproc=32 --ulimit nofile=64 %image%",
       "timeLimitHard": 15000,
-      "timeLimitState": 3000,
+      "timeLimitState": 5000,
       "outputFiles": [
-        "output.txt",
-        "error.txt",
-        "timing.txt"
+        "result.txt"
       ]
     }
   ]

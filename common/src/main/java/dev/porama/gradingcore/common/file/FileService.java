@@ -27,16 +27,16 @@ public class FileService {
     public CompletableFuture<byte[]> read(FileSource file) {
         switch (file.getSourceType()) {
             case STRING -> {
-                return CompletableFuture.supplyAsync(() -> file.getPayload().getBytes(StandardCharsets.UTF_8), executorService);
+                return CompletableFuture.supplyAsync(() -> file.getSource().getBytes(StandardCharsets.UTF_8), executorService);
             }
             case BASE64 -> {
-                return CompletableFuture.supplyAsync(() -> Base64.getDecoder().decode(file.getPayload()), executorService);
+                return CompletableFuture.supplyAsync(() -> Base64.getDecoder().decode(file.getSource()), executorService);
             }
             case SEAWEED -> {
-                return seaweedConnector.downloadFile(file.getPayload());
+                return seaweedConnector.downloadFile(file.getSource());
             }
             case URL -> {
-                return seaweedConnector.getFileUrl(URI.create(file.getPayload()));
+                return seaweedConnector.getFileUrl(URI.create(file.getSource()));
             }
         }
 

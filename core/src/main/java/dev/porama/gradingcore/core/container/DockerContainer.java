@@ -9,10 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -217,7 +214,7 @@ public class DockerContainer implements Container {
 
             String effectiveCommand = "docker cp " + temporaryFile.file().getPath() + " " + this.getContainerId() + ":" + template.getWorkingDirectory() + path.replace(" ", "\\ ");
             executeRaw(effectiveCommand).thenAccept(result -> {
-                logger.info("Added file " + path + " to container " + this.getContainerId() + ":" + result);
+                logger.debug("Added file " + path + " to container " + this.getContainerId() + ":" + result);
 
                 if (result.stderr().length() > 0) {
                     future.completeExceptionally(new RuntimeException("Execution error: " + effectiveCommand + " -> " + result.stderr()));
@@ -246,23 +243,34 @@ public class DockerContainer implements Container {
         executorService.execute(() -> {
 
             TemporaryFile temporaryFile = tempFileService.allocate();
-
             String effectiveCommand = "docker cp " +
                                       this.getContainerId() + ":" + template.getWorkingDirectory() + path.replace(" ", "\\ ") + " " +
                                       temporaryFile.file().getPath();
 
             executeRaw(effectiveCommand).thenAccept(result -> {
-                if (result.stderr().length() > 0) {
-                    future.completeExceptionally(new RuntimeException("Execution error: " + effectiveCommand + " -> " + result.stderr()));
-                }
+                try {
+                    if (!temporaryFile.file().exists()) {
+                        future.completeExceptionally(new FileNotFoundException("File not found: " + temporaryFile));
+                        return;
+                    }
 
-                try (FileInputStream inputStream = new FileInputStream(temporaryFile.file())) {
-                    byte[] bytes = StreamUtils.toBytes(inputStream);
-                    tempFileService.free(temporaryFile);
-                    future.complete(bytes);
+                    if (result.stderr().length() > 0) {
+                        future.completeExceptionally(new RuntimeException("Execution error: " + effectiveCommand + " -> " + result.stderr()));
+                        return;
+                    }
 
+                    try (FileInputStream inputStream = new FileInputStream(temporaryFile.file())) {
+                        byte[] bytes = StreamUtils.toBytes(inputStream);
+                        future.complete(bytes);
+                    }
                 } catch (IOException ex) {
                     future.completeExceptionally(ex);
+                } finally {
+                    try {
+                        tempFileService.free(temporaryFile);
+                    } catch (IOException e) {
+                        logger.error("Failed freeing temporary file " + temporaryFile.toString(), e);
+                    }
                 }
 
             }).exceptionally((ex) -> {

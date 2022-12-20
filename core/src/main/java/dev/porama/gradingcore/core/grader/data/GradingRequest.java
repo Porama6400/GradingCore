@@ -10,7 +10,7 @@ import java.util.Map;
 @Data
 public class GradingRequest {
     private String type;
-    private String submissionId;
+    private int submissionId;
     private long softLimitMemory;
     private long softLimitTime;
     private List<FileSource> filesSource = new ArrayList<>();

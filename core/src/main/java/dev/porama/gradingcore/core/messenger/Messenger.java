@@ -2,7 +2,6 @@ package dev.porama.gradingcore.core.messenger;
 
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
-import dev.porama.gradingcore.core.messenger.message.Message;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;

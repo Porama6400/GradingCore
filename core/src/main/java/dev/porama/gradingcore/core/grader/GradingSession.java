@@ -5,6 +5,8 @@ import dev.porama.gradingcore.common.file.FileSource;
 import dev.porama.gradingcore.core.container.Container;
 import dev.porama.gradingcore.core.container.ContainerTemplate;
 import dev.porama.gradingcore.core.container.DockerContainer;
+import dev.porama.gradingcore.core.exception.GradingTimeoutException;
+import dev.porama.gradingcore.core.exception.StateTimeoutException;
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
 import dev.porama.gradingcore.core.temp.TempFileService;
@@ -12,10 +14,13 @@ import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileNotFoundException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class GradingSession {
@@ -41,6 +46,8 @@ public class GradingSession {
     @Getter
     private long startTime = System.currentTimeMillis();
 
+    private Map<String, byte[]> filesMap = new ConcurrentHashMap<>();
+    private AtomicInteger savingCounter = new AtomicInteger();
 
     public GradingSession(ContainerTemplate template, GradingRequest gradingRequest, ExecutorService workerExecutor, TempFileService tempFileService, FileService fileService) {
         this.gradingRequest = gradingRequest;
@@ -72,15 +79,21 @@ public class GradingSession {
             logger.debug("Container " + container.getContainerId() + " timed out");
             setState(State.FINISHED);
             container.kill();
-            resultFuture.completeExceptionally(new TimeoutException("Execution timeout"));
+            resultFuture.completeExceptionally(new GradingTimeoutException("Execution timeout"));
             return;
         }
 
         if (getStateTime() > template.getTimeLimitState()) {
             logger.error("Container state timeout: " + container.getContainerId() + " at " + state);
-            setState(State.FINISHING);
+            if (getState() == State.EXECUTING_WAIT) {
+                gradingResult.setStatus(GradingResult.ResultType.TIMEOUT);
+                resultFuture.complete(gradingResult);
+            } else {
+                resultFuture.completeExceptionally(new StateTimeoutException("State timeout at state " + getState()));
+            }
+
+            setState(State.FINISHED);
             container.kill();
-            resultFuture.completeExceptionally(new TimeoutException("State timeout"));
             return;
         }
 
@@ -99,6 +112,7 @@ public class GradingSession {
             }
             case ATTACH -> {
                 setState(State.ATTACH_WAIT);
+                logger.info("Submission " + gradingRequest.getSubmissionId() + " is using container " + container.getContainerId());
                 container.attach()
                         .thenAccept(res -> setState(State.ADDING_FILES))
                         .exceptionally(ex -> {
@@ -154,27 +168,37 @@ public class GradingSession {
             }
             case SAVING -> {
                 setState(State.SAVING_WAIT);
+                savingCounter.set(template.getOutputFiles().size());
                 for (String filePath : template.getOutputFiles()) {
-                    container.getFile(filePath).thenAccept(result -> {
-                        gradingResult.getFiles().put(filePath, result);
-                        logger.debug("File " + filePath + ":" + new String(result));
-
-                        if (gradingResult.getFiles().size() == template.getOutputFiles().size()) {
-                            setState(State.FINISHING);
+                    container.getFile(filePath).handle((result, error) -> {
+                        if (error instanceof CompletionException completionException) {
+                            error = completionException.getCause();
                         }
+                        try {
+                            int waitingAmount = savingCounter.decrementAndGet();
 
-                    }).exceptionally(error -> {
-                        gradingResult.getFiles().put(filePath, null);
+                            logger.debug("File " + filePath + ":" + (result == null ? "null" : new String(result)) + " waiting for " + waitingAmount);
 
-                        if (gradingResult.getFiles().size() == template.getOutputFiles().size()) {
-                            setState(State.FINISHING);
+                            if (result != null) {
+                                filesMap.put(filePath, result);
+                            } else if (error instanceof FileNotFoundException) {
+                                logger.info("File not found while saving: " + filePath);
+                            } else if (error != null) {
+                                logger.error("Failed saving file " + filePath, error);
+                            }
+
+                            if (waitingAmount == 0) {
+                                setState(State.FINISHING);
+                            }
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
                         }
                         return null;
                     });
                 }
             }
             case SAVING_WAIT -> {
-                if (getStateTime() > 3000) {
+                if (getStateTime() > 5000) {
                     logger.error("Timeout saving files");
                     setState(State.FINISHING);
                 }
@@ -184,6 +208,7 @@ public class GradingSession {
                     setState(State.FINISHED);
                     return null;
                 });
+                gradingResult.setResult(new String(filesMap.get("result.txt")));
                 resultFuture.complete(gradingResult);
                 setState(State.FINISHING_WAIT);
             }

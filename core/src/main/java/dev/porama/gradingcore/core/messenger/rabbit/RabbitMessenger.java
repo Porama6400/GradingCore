@@ -1,12 +1,10 @@
 package dev.porama.gradingcore.core.messenger.rabbit;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.rabbitmq.client.*;
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
 import dev.porama.gradingcore.core.messenger.Messenger;
+import dev.porama.gradingcore.core.messenger.message.NestMessageWrapper;
 import dev.porama.gradingcore.core.utils.ConfigUtils;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -18,12 +16,13 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
 public class RabbitMessenger implements Messenger {
     private static final String GRADING_QUEUE_NAME = "grading-grade";
-    private static final String GRADING_RESULT_QUEUE_NAME = "grading-result-test";
+    private static final String GRADING_RESULT_QUEUE_NAME = "grading-result";
     @Getter
     private final String uri;
     @Getter
@@ -52,11 +51,10 @@ public class RabbitMessenger implements Messenger {
             connection = connectionFactory.newConnection();
 
             channel = connection.createChannel();
-            try{
-                channel.queueDeclare(GRADING_QUEUE_NAME, false, false, false, null);
-                channel.queueDeclare(GRADING_RESULT_QUEUE_NAME, false, false, false, null);
-            }
-            catch (Exception ignored){
+            try {
+                channel.queueDeclare(GRADING_RESULT_QUEUE_NAME, true, false, false, null);
+                channel.queueDeclare(GRADING_QUEUE_NAME, true, false, false, null);
+            } catch (Exception ignored) {
 
             }
 
@@ -87,36 +85,37 @@ public class RabbitMessenger implements Messenger {
 
                 logger.info(ConfigUtils.toJson(request));
                 CompletableFuture<GradingResult> future = requestConsumer.apply(request);
-                future.thenAccept((result) -> {
-                    try {
-                        publishResult(result);
-                        logger.debug("ACK");
-                        listenerChannel.basicAck(envelope.getDeliveryTag(), false);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        throw new RuntimeException(e);
+
+                future.handle((result, throwable) -> {
+                    if (throwable instanceof CompletionException completionException) {
+                        throwable = completionException.getCause();
+                        logger.debug("Found completion exception");
                     }
 
-                }).exceptionally((ex) -> {
-                    ex.printStackTrace();
                     try {
-                        logger.debug("NACK");
-                        listenerChannel.basicNack(envelope.getDeliveryTag(), false, true);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        throw new RuntimeException(e);
+                        if (result != null) {
+                            publishResult(result);
+
+                            logger.info("Completed grading submission " + request.getSubmissionId());
+                            listenerChannel.basicAck(envelope.getDeliveryTag(), false);
+                        }
+                    } catch (Throwable ex) {
+                        logger.error("Failed to grade submission " + request.getSubmissionId(), ex);
+                        try {
+                            listenerChannel.basicNack(envelope.getDeliveryTag(), false, true);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
                     return null;
-
                 });
-
             }
         });
     }
 
     @Override
     public void publishResult(GradingResult result) throws IOException {
-        String string = ConfigUtils.toJson(result);
+        String string = ConfigUtils.toJson(new NestMessageWrapper<>("result", result));
         channel.basicPublish("", GRADING_RESULT_QUEUE_NAME, null, string.getBytes());
     }
 

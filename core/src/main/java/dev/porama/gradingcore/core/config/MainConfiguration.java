@@ -9,4 +9,5 @@ public class MainConfiguration {
     private boolean debug;
     private String messengerUri;
     private int parallelism;
+    private int maxRequeue;
 }

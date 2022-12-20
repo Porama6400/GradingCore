@@ -1,5 +1,6 @@
 {
   "debug": true,
   "messengerUri": "amqp://localhost:5672",
-  "parallelism": 16
+  "parallelism": 16,
+  "maxRequeue": 3
 }

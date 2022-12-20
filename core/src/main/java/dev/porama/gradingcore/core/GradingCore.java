@@ -4,7 +4,9 @@ import ch.qos.logback.classic.Level;
 import dev.porama.gradingcore.core.config.MainConfiguration;
 import dev.porama.gradingcore.core.config.TemplateService;
 import dev.porama.gradingcore.core.grader.GraderService;
+import dev.porama.gradingcore.core.grader.data.GradingResult;
 import dev.porama.gradingcore.core.messenger.Messenger;
+import dev.porama.gradingcore.core.messenger.RequeueLimiter;
 import dev.porama.gradingcore.core.messenger.rabbit.RabbitMessenger;
 import dev.porama.gradingcore.core.temp.TempFileService;
 import dev.porama.gradingcore.core.utils.ConfigUtils;
@@ -23,6 +25,7 @@ import java.util.function.Supplier;
 @Getter
 public class GradingCore {
 
+    private RequeueLimiter requeueLimiter;
     private MainConfiguration mainConfiguration;
     private File tempDirectory;
     private Logger logger;
@@ -38,6 +41,8 @@ public class GradingCore {
         tempDirectory = new File("temp");
         tempFileService = new TempFileService(tempDirectory);
         masterThreadPool = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
+        requeueLimiter = new RequeueLimiter();
+        masterThreadPool.schedule(requeueLimiter::resetAll, 15, TimeUnit.MINUTES);
 
         logger = LoggerFactory.getLogger(GradingCore.class);
         logger.info("Starting GradingCore");
@@ -60,6 +65,15 @@ public class GradingCore {
         masterThreadPool.execute(() -> {
             try {
                 messenger.listen(req -> {
+                    requeueLimiter.increment(req.getSubmissionId());
+                    if (requeueLimiter.hasExceeded(req.getSubmissionId(), mainConfiguration.getMaxRequeue())) {
+                        logger.warn("Submission {} has exceeded the maximum requeue limit", req.getSubmissionId());
+                        return CompletableFuture.completedFuture(new GradingResult(
+                                req.getSubmissionId(),
+                                GradingResult.ResultType.REQUEUE_LIMIT_EXCEEDED,
+                                "1"
+                        ));
+                    }
 
                     synchronized (this) {
                         long currentTime = System.currentTimeMillis();

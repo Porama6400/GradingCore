@@ -23,10 +23,10 @@ rm testcase.zip
 chmod go-r testcase -R
 
 cat source
-mv source ./work/main.c
+mv source ./work/main.cpp
 
 cd work
-sudo -u grader gcc main.c -o main > compile.txt 2> compile.txt
+sudo -u grader g++ main.cpp -o main > compile.txt 2> compile.txt
 cd ..
 
 mv work/compile.txt compile.txt

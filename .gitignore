@@ -2,9 +2,12 @@
 build/
 bin/
 
-core/test/temp
-core/test/*.json
-core/test/*.log
+test/temp
+test/*.json
+test/*.log
+
+core/out
+common/out
 
 .idea
 .vscode/

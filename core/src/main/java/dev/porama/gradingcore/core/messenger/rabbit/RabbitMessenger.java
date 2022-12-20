@@ -83,7 +83,7 @@ public class RabbitMessenger implements Messenger {
                     return;
                 }
 
-                logger.info(ConfigUtils.toJson(request));
+                logger.debug(ConfigUtils.toJson(request));
                 CompletableFuture<GradingResult> future = requestConsumer.apply(request);
 
                 future.handle((result, throwable) -> {

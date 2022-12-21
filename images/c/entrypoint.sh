@@ -47,7 +47,10 @@ if [ -d "./testcase" ] ; then
       cd work
       eval "cat ../$i | time -v -o ../timing.txt sudo -u grader ./main" > ../out.txt 2> ../err.txt
       cd ..
-      eval "diff out.txt ./testcase/$(basename $i .in).out" > diff.txt
+      eval "cat out.txt | ./scrubber" > compout.txt
+      eval "cat ./testcase/$(basename $i .in).out | ./scrubber" > compref.txt
+      eval "diff compout.txt compref.txt" > diff.txt
+      rm compout.txt compref.txt
       chmod go-r diff.txt
       ls -al
       cat out.txt

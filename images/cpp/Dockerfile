@@ -5,6 +5,8 @@ RUN adduser -D --uid 1100 grader
 WORKDIR /home/grader/
 RUN chown root:root . -R && chmod go-r . -R
 RUN mkdir work && chown grader:grader work -R && chmod a+rw work -R
+ADD scrubber.cpp .
+RUN g++ scrubber.cpp -O3 -o scrubber && rm scrubber.cpp
 ADD entrypoint.sh .
 RUN chmod go-r entrypoint.sh
 CMD ["sh", "entrypoint.sh"]

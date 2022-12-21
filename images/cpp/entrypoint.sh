@@ -43,7 +43,8 @@ ls testcase -al
 
 
 if [ -d "./testcase" ] ; then
-  for i in ./testcase/*.in ; do
+
+  for i in $( ls -1v ./testcase/*.in ) ; do
       cd work
       eval "cat ../$i | time -v -o ../timing.txt sudo -u grader ./main" > ../out.txt 2> ../err.txt
       cd ..
@@ -52,10 +53,15 @@ if [ -d "./testcase" ] ; then
       eval "diff compout.txt compref.txt" > diff.txt
       rm compout.txt compref.txt
       chmod go-r diff.txt
+      echo "===== $1 ====="
       ls -al
+      echo "=== out ==="
       cat out.txt
+      echo "=== err ==="
       cat err.txt
+      echo "=== timing ==="
       cat timing.txt
+      echo "=== diff ==="
       cat diff.txt
       echo "========="
       if [ -s ./diff.txt ] ; then

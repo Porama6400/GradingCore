@@ -1,6 +1,7 @@
 package dev.porama.gradingcore.core.messenger.rabbit;
 
 import com.rabbitmq.client.*;
+import dev.porama.gradingcore.core.exception.ExceptionUtils;
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
 import dev.porama.gradingcore.core.messenger.Messenger;
@@ -16,7 +17,6 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
@@ -80,6 +80,7 @@ public class RabbitMessenger implements Messenger {
                     request = ConfigUtils.fromJson(body, GradingRequest.class);
                 } catch (Exception ex) {
                     listenerChannel.basicAck(envelope.getDeliveryTag(), false);
+                    logger.error("Deserialization error: " + body, ex);
                     return;
                 }
 
@@ -87,25 +88,23 @@ public class RabbitMessenger implements Messenger {
                 CompletableFuture<GradingResult> future = requestConsumer.apply(request);
 
                 future.handle((result, throwable) -> {
-                    if (throwable instanceof CompletionException completionException) {
-                        throwable = completionException.getCause();
-                        logger.debug("Found completion exception");
-                    }
-
+                    throwable = ExceptionUtils.unwrapCompletionException(throwable);
                     try {
                         if (result != null) {
                             publishResult(result);
 
                             logger.info("Completed grading submission " + request.getSubmissionId());
                             listenerChannel.basicAck(envelope.getDeliveryTag(), false);
-                        }
-                    } catch (Throwable ex) {
-                        logger.error("Failed to grade submission " + request.getSubmissionId(), ex);
-                        try {
+                        } else if (ExceptionUtils.isRetryAllowed(throwable)) {
+                            logger.error("Failed to grade submission " + request.getSubmissionId(), throwable);
                             listenerChannel.basicNack(envelope.getDeliveryTag(), false, true);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
+                        } else {
+                            logger.error("Failed to grade submission (not retry-able)" + request.getSubmissionId(), throwable);
+                            listenerChannel.basicAck(envelope.getDeliveryTag(), false);
                         }
+
+                    } catch (Throwable ex) {
+                        logger.error("Failed to publish reply for submission " + request.getSubmissionId(), ex);
                     }
                     return null;
                 });

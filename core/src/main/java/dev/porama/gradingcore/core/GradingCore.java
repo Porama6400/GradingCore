@@ -5,6 +5,7 @@ import dev.porama.gradingcore.core.config.MainConfiguration;
 import dev.porama.gradingcore.core.config.TemplateService;
 import dev.porama.gradingcore.core.grader.GraderService;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
+import dev.porama.gradingcore.core.grader.data.GradingStatus;
 import dev.porama.gradingcore.core.messenger.Messenger;
 import dev.porama.gradingcore.core.messenger.RequeueLimiter;
 import dev.porama.gradingcore.core.messenger.rabbit.RabbitMessenger;
@@ -36,7 +37,7 @@ public class GradingCore {
     private ScheduledExecutorService masterThreadPool;
     private long nextTimeSlot = 0;
 
-    public void start() throws IOException, InterruptedException {
+    public void start() throws IOException {
         mainConfiguration = ConfigUtils.load(new File("config.json"), MainConfiguration.class);
         tempDirectory = new File("temp");
         tempFileService = new TempFileService(tempDirectory);
@@ -70,8 +71,8 @@ public class GradingCore {
                         logger.warn("Submission {} has exceeded the maximum requeue limit", req.getSubmissionId());
                         return CompletableFuture.completedFuture(new GradingResult(
                                 req.getSubmissionId(),
-                                GradingResult.ResultType.REQUEUE_LIMIT_EXCEEDED,
-                                "1"
+                                GradingStatus.REQUEUE_LIMIT_EXCEEDED,
+                                null
                         ));
                     }
 
@@ -84,7 +85,7 @@ public class GradingCore {
                         nextTimeSlot += 200;
 
                         logger.info("Scheduled " + req.getSubmissionId() + " to run " + delay + "ms in the future");
-                        return delay(() -> graderService.submit(req), delay);
+                        return delayingFuture(() -> graderService.submit(req), delay);
                     }
                 });
             } catch (IOException e) {
@@ -93,7 +94,7 @@ public class GradingCore {
         });
     }
 
-    public <T> CompletableFuture<T> delay(Supplier<CompletableFuture<T>> supplier, long delay) {
+    public <T> CompletableFuture<T> delayingFuture(Supplier<CompletableFuture<T>> supplier, long delay) {
         CompletableFuture<T> future = new CompletableFuture<>();
         masterThreadPool.schedule(() -> {
             CompletableFuture<T> realFuture = supplier.get();

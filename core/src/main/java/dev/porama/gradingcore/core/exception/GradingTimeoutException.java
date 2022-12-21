@@ -1,13 +1,7 @@
 package dev.porama.gradingcore.core.exception;
 
-import java.util.concurrent.TimeoutException;
-
-public class GradingTimeoutException extends TimeoutException {
+public class GradingTimeoutException extends GradingException {
     public GradingTimeoutException(String message) {
-        super(message);
-    }
-
-    public GradingTimeoutException() {
-        super();
+        super(true, message);
     }
 }

@@ -84,7 +84,10 @@ public class RabbitMessenger implements Messenger {
                     return;
                 }
 
-                logger.debug(ConfigUtils.toJson(request));
+                if (logger.isDebugEnabled()) {
+                    logger.debug(ConfigUtils.toJson(request));
+                }
+
                 CompletableFuture<GradingResult> future = requestConsumer.apply(request);
 
                 future.handle((result, throwable) -> {
@@ -115,6 +118,9 @@ public class RabbitMessenger implements Messenger {
     @Override
     public void publishResult(GradingResult result) throws IOException {
         String string = ConfigUtils.toJson(new NestMessageWrapper<>("result", result));
+        if (logger.isDebugEnabled()) {
+            logger.debug("Publishing " + string);
+        }
         channel.basicPublish("", GRADING_RESULT_QUEUE_NAME, null, string.getBytes());
     }
 

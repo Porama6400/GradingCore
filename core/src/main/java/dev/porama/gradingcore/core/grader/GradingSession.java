@@ -155,10 +155,9 @@ public class GradingSession {
             }
             case EXECUTING_WAIT -> {
                 container.getFile("executed.lock").thenAccept(result -> {
-                    logger.debug("completed execution");
                     setState(State.SAVING);
                 }).exceptionally(ex -> {
-                    logger.debug("still waiting: ", ex);
+                    logger.debug(container.getContainerId() + "still waiting");
                     return null;
                 });
             }

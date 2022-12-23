@@ -39,7 +39,7 @@ public class GradingSession {
     private final ContainerTemplate template;
     @Getter
     private final Logger logger = LoggerFactory.getLogger(GradingSession.class);
-    private final Map<String, byte[]> filesMap = new ConcurrentHashMap<>();
+    private final Map<String, byte[]> fileMap = new ConcurrentHashMap<>();
     private final AtomicInteger savingCounter = new AtomicInteger();
     @Getter
     private State state = State.STARTING;
@@ -76,14 +76,14 @@ public class GradingSession {
             logger.debug("Container " + container.getContainerId() + " timed out");
             setState(State.FINISHED);
             container.kill();
-            resultFuture.completeExceptionally(new GradingTimeoutException("Execution timeout"));
+            resultFuture.completeExceptionally(new GradingTimeoutException("Container timeout"));
             return;
         }
 
         if (getStateTime() > template.getTimeLimitState()) {
             logger.error("Container state timeout: " + container.getContainerId() + " at " + state);
             if (getState() == State.EXECUTING_WAIT) {
-                resultFuture.complete(new GradingResult(gradingRequest.getSubmissionId(), GradingStatus.TIMEOUT_EXECUTION, null));
+                resultFuture.complete(new GradingResult(gradingRequest.getSubmissionId(), GradingStatus.TIMEOUT_EXECUTION));
             } else {
                 resultFuture.completeExceptionally(new GradingStateTimeoutException("State timeout at state " + getState()));
             }
@@ -175,7 +175,7 @@ public class GradingSession {
                             logger.debug("File " + filePath + ":" + (result == null ? "null" : new String(result)) + " waiting for " + waitingAmount);
 
                             if (result != null) {
-                                filesMap.put(filePath, result);
+                                fileMap.put(filePath, result);
                             } else if (error instanceof FileNotFoundException) {
                                 logger.info("File not found while saving: " + filePath);
                             } else if (error != null) {
@@ -205,12 +205,9 @@ public class GradingSession {
                     return null;
                 });
 
-                byte[] resultBytes = filesMap.get("result.txt");
-                if (resultBytes == null) {
-                    resultFuture.complete(new GradingResult(gradingRequest.getSubmissionId(), GradingStatus.FAILED_MISSING_RESULT, null));
-                } else {
-                    resultFuture.complete(new GradingResult(gradingRequest.getSubmissionId(), GradingStatus.COMPLETED, new String(resultBytes)));
-                }
+
+                GradingResult parse = GradingResult.parse(gradingRequest.getSubmissionId(), fileMap);
+                resultFuture.complete(parse);
                 setState(State.FINISHING_WAIT);
             }
             case FINISHED -> {

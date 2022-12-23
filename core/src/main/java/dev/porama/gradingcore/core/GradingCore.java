@@ -71,8 +71,7 @@ public class GradingCore {
                         logger.warn("Submission {} has exceeded the maximum requeue limit", req.getSubmissionId());
                         return CompletableFuture.completedFuture(new GradingResult(
                                 req.getSubmissionId(),
-                                GradingStatus.REQUEUE_LIMIT_EXCEEDED,
-                                null
+                                GradingStatus.REQUEUE_LIMIT_EXCEEDED
                         ));
                     }
 

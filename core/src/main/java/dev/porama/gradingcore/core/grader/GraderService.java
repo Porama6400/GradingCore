@@ -38,7 +38,7 @@ public class GraderService {
                 try {
                     entry.tick();
                 } catch (Exception ex) {
-                    logger.error("Unhandled error ticking grading for submission " + entry.getGradingRequest().getSubmissionId(), ex);
+                    logger.error("Unhandled error ticking grading for submission " + entry.getGradingRequest().getId(), ex);
                 }
             });
             sessionList.removeIf(GradingSession::isFinished);

@@ -102,18 +102,18 @@ public class RabbitMessenger implements Messenger {
                             metricsManager.handleResponse(request, result);
                             publishResult(result);
 
-                            logger.info("Completed grading submission " + request.getSubmissionId() + " - " + result.getStatus());
+                            logger.info("Completed grading submission " + request.getId() + " - " + result.getStatus());
                             listenerChannel.basicAck(envelope.getDeliveryTag(), false);
                         } else if (ExceptionUtils.isRetryAllowed(throwable)) {
-                            logger.error("Failed to grade submission " + request.getSubmissionId(), throwable);
+                            logger.error("Failed to grade submission " + request.getId(), throwable);
                             listenerChannel.basicNack(envelope.getDeliveryTag(), false, true);
                         } else {
-                            logger.error("Failed to grade submission (not retry-able)" + request.getSubmissionId(), throwable);
+                            logger.error("Failed to grade submission (not retry-able)" + request.getId(), throwable);
                             listenerChannel.basicAck(envelope.getDeliveryTag(), false);
                         }
 
                     } catch (Throwable ex) {
-                        logger.error("Failed to publish reply for submission " + request.getSubmissionId(), ex);
+                        logger.error("Failed to publish reply for submission " + request.getId(), ex);
                     }
                     return null;
                 });

@@ -83,7 +83,7 @@ public class GradingSession {
         if (getStateTime() > template.getTimeLimitState()) {
             logger.error("Container state timeout: " + container.getContainerId() + " at " + state);
             if (getState() == State.EXECUTING_WAIT) {
-                resultFuture.complete(new GradingResult(gradingRequest.getSubmissionId(), GradingStatus.TIMEOUT_EXECUTION));
+                resultFuture.complete(new GradingResult(gradingRequest.getId(), GradingStatus.TIMEOUT_EXECUTION));
             } else {
                 resultFuture.completeExceptionally(new GradingStateTimeoutException("State timeout at state " + getState()));
             }
@@ -108,7 +108,7 @@ public class GradingSession {
             }
             case ATTACH -> {
                 setState(State.ATTACH_WAIT);
-                logger.info("Submission " + gradingRequest.getSubmissionId() + " is using container " + container.getContainerId());
+                logger.info("Submission " + gradingRequest.getId() + " is using container " + container.getContainerId());
                 container.attach()
                         .thenAccept(res -> setState(State.ADDING_FILES))
                         .exceptionally(ex -> {
@@ -206,7 +206,7 @@ public class GradingSession {
                 });
 
 
-                GradingResult parse = GradingResult.parse(gradingRequest.getSubmissionId(), fileMap);
+                GradingResult parse = GradingResult.parse(gradingRequest.getId(), fileMap);
                 parse.setDuration(System.currentTimeMillis() - startTime);
                 resultFuture.complete(parse);
                 setState(State.FINISHING_WAIT);

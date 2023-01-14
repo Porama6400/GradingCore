@@ -73,11 +73,11 @@ public class GradingCore {
         masterThreadPool.execute(() -> {
             try {
                 messenger.listen(req -> {
-                    requeueLimiter.increment(req.getSubmissionId());
-                    if (requeueLimiter.hasExceeded(req.getSubmissionId(), mainConfiguration.getMaxRequeue())) {
-                        logger.warn("Submission {} has exceeded the maximum requeue limit", req.getSubmissionId());
+                    requeueLimiter.increment(req.getId());
+                    if (requeueLimiter.hasExceeded(req.getId(), mainConfiguration.getMaxRequeue())) {
+                        logger.warn("Submission {} has exceeded the maximum requeue limit", req.getId());
                         return CompletableFuture.completedFuture(new GradingResult(
-                                req.getSubmissionId(),
+                                req.getId(),
                                 GradingStatus.REQUEUE_LIMIT_EXCEEDED
                         ));
                     }
@@ -90,7 +90,7 @@ public class GradingCore {
                         long delay = nextTimeSlot - currentTime;
                         nextTimeSlot += getMainConfiguration().getTimeSlotWidth();
 
-                        logger.info("Scheduled " + req.getSubmissionId() + " to run " + delay + "ms in the future");
+                        logger.info("Scheduled " + req.getId() + " to run " + delay + "ms in the future");
                         return delayingFuture(() -> graderService.submit(req), delay);
                     }
                 });

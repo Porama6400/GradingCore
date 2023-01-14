@@ -9,7 +9,7 @@ import java.util.Map;
 @Data
 public class GradingResult {
 
-    private int submissionId;
+    private int id;
     private GradingStatus status;
     private @Nullable String result;
     private @Nullable String compilationLog;
@@ -19,12 +19,12 @@ public class GradingResult {
 
     }
 
-    public GradingResult(int submissionId, GradingStatus status) {
-        this(submissionId, status, null, null);
+    public GradingResult(int id, GradingStatus status) {
+        this(id, status, null, null);
     }
 
-    public GradingResult(int submissionId, GradingStatus status, @Nullable String result, @Nullable String compilationLog) {
-        this.submissionId = submissionId;
+    public GradingResult(int id, GradingStatus status, @Nullable String result, @Nullable String compilationLog) {
+        this.id = id;
         this.status = status;
         this.result = result;
         this.compilationLog = compilationLog;

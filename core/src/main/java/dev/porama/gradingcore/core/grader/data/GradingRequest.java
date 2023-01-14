@@ -4,15 +4,21 @@ import dev.porama.gradingcore.common.file.FileSource;
 import lombok.Data;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 @Data
 public class GradingRequest {
+    private int id;
     private String type;
-    private int submissionId;
-    private long softLimitMemory;
-    private long softLimitTime;
+
+    /**
+     * optionally contains:
+     * long softLimitMemory
+     * long softLimitTime
+     */
+    private Map<String, String> metadata = new HashMap<>();
     private List<FileSource> filesSource = new ArrayList<>();
 
     public GradingRequest(String type, Map<String, byte[]> files) {

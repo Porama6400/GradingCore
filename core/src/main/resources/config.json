@@ -2,5 +2,8 @@
   "debug": true,
   "messengerUri": "amqp://localhost:5672",
   "parallelism": 4,
-  "maxRequeue": 3
+  "maxRequeue": 3,
+  "tickInterval": 1000,
+  "timeSlotWidth": 250,
+  "nodeId": "testnode"
 }

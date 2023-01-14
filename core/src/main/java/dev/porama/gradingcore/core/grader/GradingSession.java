@@ -207,6 +207,7 @@ public class GradingSession {
 
 
                 GradingResult parse = GradingResult.parse(gradingRequest.getSubmissionId(), fileMap);
+                parse.setDuration(System.currentTimeMillis() - startTime);
                 resultFuture.complete(parse);
                 setState(State.FINISHING_WAIT);
             }

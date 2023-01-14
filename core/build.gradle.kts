@@ -20,10 +20,12 @@ dependencies {
     implementation("com.google.code.gson:gson:2.9.1")
 
     implementation("com.rabbitmq:amqp-client:5.16.0")
+    implementation("com.influxdb:influxdb-client-java:6.7.0")
     implementation("org.slf4j:slf4j-api:2.0.3")
     implementation("ch.qos.logback:logback-classic:1.4.3")
 
     implementation(project(":common"))
+
 
 }
 

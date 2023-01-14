@@ -6,6 +6,7 @@ import dev.porama.gradingcore.core.grader.data.GradingRequest;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
 import dev.porama.gradingcore.core.messenger.Messenger;
 import dev.porama.gradingcore.core.messenger.message.NestMessageWrapper;
+import dev.porama.gradingcore.core.metrics.MetricsManager;
 import dev.porama.gradingcore.core.utils.ConfigUtils;
 import lombok.Getter;
 import org.slf4j.Logger;
@@ -15,6 +16,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
@@ -27,6 +29,7 @@ public class RabbitMessenger implements Messenger {
     private final String uri;
     @Getter
     private final Logger logger;
+    private final MetricsManager metricsManager;
     private final int parallelism;
     @Getter
     private ConnectionFactory connectionFactory;
@@ -37,7 +40,8 @@ public class RabbitMessenger implements Messenger {
     @Getter
     private Channel listenerChannel;
 
-    public RabbitMessenger(String uri, int parallelism) {
+    public RabbitMessenger(MetricsManager metricsManager, String uri, int parallelism) {
+        this.metricsManager = metricsManager;
         this.parallelism = parallelism;
         logger = LoggerFactory.getLogger(RabbitMessenger.class);
         Objects.requireNonNull(uri);
@@ -80,7 +84,7 @@ public class RabbitMessenger implements Messenger {
                     request = ConfigUtils.fromJson(body, GradingRequest.class);
                 } catch (Exception ex) {
                     listenerChannel.basicAck(envelope.getDeliveryTag(), false);
-                    logger.error("Deserialization error: " + body, ex);
+                    logger.error("Deserialization error: " + Arrays.toString(body), ex);
                     return;
                 }
 
@@ -88,15 +92,17 @@ public class RabbitMessenger implements Messenger {
                     logger.debug(ConfigUtils.toJson(request));
                 }
 
+                metricsManager.handleRequest(request);
                 CompletableFuture<GradingResult> future = requestConsumer.apply(request);
 
                 future.handle((result, throwable) -> {
                     throwable = ExceptionUtils.unwrapCompletionException(throwable);
                     try {
                         if (result != null) {
+                            metricsManager.handleResponse(request, result);
                             publishResult(result);
 
-                            logger.info("Completed grading submission " + request.getSubmissionId());
+                            logger.info("Completed grading submission " + request.getSubmissionId() + " - " + result.getStatus());
                             listenerChannel.basicAck(envelope.getDeliveryTag(), false);
                         } else if (ExceptionUtils.isRetryAllowed(throwable)) {
                             logger.error("Failed to grade submission " + request.getSubmissionId(), throwable);

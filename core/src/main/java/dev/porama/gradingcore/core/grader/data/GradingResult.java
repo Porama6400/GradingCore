@@ -13,6 +13,7 @@ public class GradingResult {
     private GradingStatus status;
     private @Nullable String result;
     private @Nullable String compilationLog;
+    private long duration = -1;
 
     public GradingResult() {
 
@@ -52,5 +53,9 @@ public class GradingResult {
 
         return new GradingResult(submissionId, status, result, compilationLog);
 
+    }
+
+    public void setDuration(long duration) {
+        this.duration = duration;
     }
 }

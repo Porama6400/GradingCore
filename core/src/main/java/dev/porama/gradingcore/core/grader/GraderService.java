@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
@@ -27,10 +26,10 @@ public class GraderService {
 
     private final Logger logger = LoggerFactory.getLogger(GraderService.class);
 
-    public GraderService(TemplateService templateService, ScheduledExecutorService masterThreadPool) {
+    public GraderService(TemplateService templateService, ScheduledExecutorService masterThreadPool, int tickInterval) {
         this.templateService = templateService;
 
-        masterThreadPool.scheduleAtFixedRate(this::tick, 1, 1, TimeUnit.SECONDS);
+        masterThreadPool.scheduleAtFixedRate(this::tick, tickInterval, tickInterval, TimeUnit.MILLISECONDS);
     }
 
     public void tick() {

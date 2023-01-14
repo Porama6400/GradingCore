@@ -6,6 +6,9 @@ open module GradingCore.core.main {
     requires ch.qos.logback.classic;
     requires com.rabbitmq.client;
     requires java.net.http;
+    requires influxdb.client.core;
+    requires influxdb.client.java;
+    requires influxdb.client.utils;
 
     requires GradingCore.common.main;
 

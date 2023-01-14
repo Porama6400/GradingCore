@@ -9,6 +9,7 @@ import dev.porama.gradingcore.core.grader.data.GradingStatus;
 import dev.porama.gradingcore.core.messenger.Messenger;
 import dev.porama.gradingcore.core.messenger.RequeueLimiter;
 import dev.porama.gradingcore.core.messenger.rabbit.RabbitMessenger;
+import dev.porama.gradingcore.core.metrics.MetricsManager;
 import dev.porama.gradingcore.core.temp.TempFileService;
 import dev.porama.gradingcore.core.utils.ConfigUtils;
 import lombok.Getter;
@@ -35,6 +36,7 @@ public class GradingCore {
     private GraderService graderService;
     private TempFileService tempFileService;
     private ScheduledExecutorService masterThreadPool;
+    private MetricsManager metricsManager;
     private long nextTimeSlot = 0;
 
     public void start() throws IOException {
@@ -43,7 +45,12 @@ public class GradingCore {
         tempFileService = new TempFileService(tempDirectory);
         masterThreadPool = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
         requeueLimiter = new RequeueLimiter();
-        masterThreadPool.schedule(requeueLimiter::resetAll, 15, TimeUnit.MINUTES);
+        masterThreadPool.scheduleAtFixedRate(requeueLimiter::resetAll, 15, 15, TimeUnit.MINUTES);
+        metricsManager = new MetricsManager(
+                mainConfiguration.getInfluxUrl(), mainConfiguration.getInfluxToken(),
+                mainConfiguration.getInfluxOrg(), mainConfiguration.getInfluxBucket(),
+                mainConfiguration.getNodeId());
+        masterThreadPool.scheduleAtFixedRate(metricsManager::tickPublish, 5, 5, TimeUnit.SECONDS);
 
         logger = LoggerFactory.getLogger(GradingCore.class);
         logger.info("Starting GradingCore");
@@ -60,9 +67,9 @@ public class GradingCore {
 
         templateService = new TemplateService();
 
-        graderService = new GraderService(templateService, masterThreadPool);
+        graderService = new GraderService(templateService, masterThreadPool, mainConfiguration.getTickInterval());
 
-        messenger = new RabbitMessenger(mainConfiguration.getMessengerUri(), mainConfiguration.getParallelism());
+        messenger = new RabbitMessenger(metricsManager, mainConfiguration.getMessengerUri(), mainConfiguration.getParallelism());
         masterThreadPool.execute(() -> {
             try {
                 messenger.listen(req -> {
@@ -81,7 +88,7 @@ public class GradingCore {
                             nextTimeSlot = currentTime;
                         }
                         long delay = nextTimeSlot - currentTime;
-                        nextTimeSlot += 200;
+                        nextTimeSlot += getMainConfiguration().getTimeSlotWidth();
 
                         logger.info("Scheduled " + req.getSubmissionId() + " to run " + delay + "ms in the future");
                         return delayingFuture(() -> graderService.submit(req), delay);

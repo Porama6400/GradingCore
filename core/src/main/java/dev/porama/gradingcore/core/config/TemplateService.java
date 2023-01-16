@@ -2,6 +2,7 @@ package dev.porama.gradingcore.core.config;
 
 import dev.porama.gradingcore.core.container.ContainerTemplate;
 import dev.porama.gradingcore.core.utils.ConfigUtils;
+import dev.porama.gradingcore.core.utils.SerializerUtils;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +28,7 @@ public class TemplateService {
                 template.getWorkingDirectory() == null ||
                 template.getTimeLimitHard() == 0
             ) {
-                logger.error("Container template " + template.getId() + " is invalid, skipping, " + ConfigUtils.toJson(template));
+                logger.error("Container template " + template.getId() + " is invalid, skipping, " + SerializerUtils.toJson(template));
             } else {
                 logger.info("Registering container template " + template.getId());
                 templateMap.put(template.getId(), template);

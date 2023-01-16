@@ -1,6 +1,6 @@
 package dev.porama.gradingcore.core.grader.data;
 
-import dev.porama.gradingcore.core.utils.ParserUtils;
+import dev.porama.gradingcore.core.utils.SerializerUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,10 +10,10 @@ public class GradingResultParser {
 
     private static final Logger logger = LoggerFactory.getLogger(GradingResultParser.class);
 
-    public static GradingResult parse(int submissionId, Map<String, byte[]> fileMap) {
+    public static GradingResult parse(GradingRequest request, Map<String, byte[]> fileMap) {
 //        String result = ParserUtils.parseFileMap(fileMap, "result.txt");
-        String compilationLog = ParserUtils.parseFileMap(fileMap, "compilationLog.txt");
-        String statusText = ParserUtils.parseFileMap(fileMap, "status.txt");
+        String compilationLog = SerializerUtils.parseFileMap(fileMap, "compilationLog.txt");
+        String statusText = SerializerUtils.parseFileMap(fileMap, "status.txt");
 
         GradingStatus status;
         try {
@@ -24,6 +24,6 @@ public class GradingResultParser {
             logger.error("Failed to parse grading status: {}", statusText);
         }
 
-        return new GradingResult(submissionId, status, compilationLog, fileMap);
+        return new GradingResult(request, status, compilationLog, fileMap);
     }
 }

@@ -41,12 +41,13 @@ public class MetricsManager {
 
     public void handleResponse(GradingRequest request, GradingResult gradingResult) {
         synchronized (points) {
+            long containerTime = (Long) gradingResult.getMetadata().get("containerTime");
             points.add(Point.measurement("response")
                     .time(System.currentTimeMillis(), WritePrecision.MS)
                     .addTag("node", nodeId)
                     .addTag("status", gradingResult.getStatus().toString())
                     .addTag("type", request.getType())
-                    .addField("duration", gradingResult.getDuration())
+                    .addField("duration", containerTime)
             );
         }
     }

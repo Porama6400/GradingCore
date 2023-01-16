@@ -7,7 +7,8 @@ import dev.porama.gradingcore.core.grader.data.GradingResult;
 import dev.porama.gradingcore.core.messenger.Messenger;
 import dev.porama.gradingcore.core.messenger.message.NestMessageWrapper;
 import dev.porama.gradingcore.core.metrics.MetricsManager;
-import dev.porama.gradingcore.core.utils.ConfigUtils;
+import dev.porama.gradingcore.core.scheduler.RequestFuturePair;
+import dev.porama.gradingcore.core.utils.SerializerUtils;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,8 +20,9 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 public class RabbitMessenger implements Messenger {
     private static final String GRADING_QUEUE_NAME = "grading-grade";
@@ -74,14 +76,24 @@ public class RabbitMessenger implements Messenger {
     }
 
     @Override
-    public void listen(Function<GradingRequest, CompletableFuture<GradingResult>> requestConsumer) throws IOException {
+    public void listen(ExecutorService executor, Consumer<RequestFuturePair> request) {
+        executor.submit(() -> {
+            try {
+                listenBlocking(request);
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
+        });
+    }
+
+    public void listenBlocking(Consumer<RequestFuturePair> requestConsumer) throws IOException {
         listenerChannel.basicQos(parallelism);
         listenerChannel.basicConsume(GRADING_QUEUE_NAME, false, new DefaultConsumer(listenerChannel) {
             @Override
             public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
                 GradingRequest request;
                 try {
-                    request = ConfigUtils.fromJson(body, GradingRequest.class);
+                    request = SerializerUtils.fromJson(body, GradingRequest.class);
                 } catch (Exception ex) {
                     listenerChannel.basicAck(envelope.getDeliveryTag(), false);
                     logger.error("Deserialization error: " + Arrays.toString(body), ex);
@@ -89,11 +101,11 @@ public class RabbitMessenger implements Messenger {
                 }
 
                 if (logger.isDebugEnabled()) {
-                    logger.debug(ConfigUtils.toJson(request));
+                    logger.debug(SerializerUtils.toJson(request));
                 }
 
-                metricsManager.handleRequest(request);
-                CompletableFuture<GradingResult> future = requestConsumer.apply(request);
+                CompletableFuture<GradingResult> future = new CompletableFuture<>();
+                requestConsumer.accept(new RequestFuturePair(request, future));
 
                 future.handle((result, throwable) -> {
                     throwable = ExceptionUtils.unwrapCompletionException(throwable);
@@ -102,13 +114,13 @@ public class RabbitMessenger implements Messenger {
                             metricsManager.handleResponse(request, result);
                             publishResult(result);
 
-                            logger.info("Completed grading submission " + request.getId() + " - " + result.getStatus());
+                            logger.info("Completed grading " + request.getId() + " - " + result.getStatus());
                             listenerChannel.basicAck(envelope.getDeliveryTag(), false);
                         } else if (ExceptionUtils.isRetryAllowed(throwable)) {
-                            logger.error("Failed to grade submission " + request.getId(), throwable);
+                            logger.error("Failed to grade " + request.getId(), throwable);
                             listenerChannel.basicNack(envelope.getDeliveryTag(), false, true);
                         } else {
-                            logger.error("Failed to grade submission (not retry-able)" + request.getId(), throwable);
+                            logger.error("Failed to grade (non retriable)" + request.getId(), throwable);
                             listenerChannel.basicAck(envelope.getDeliveryTag(), false);
                         }
 
@@ -123,7 +135,7 @@ public class RabbitMessenger implements Messenger {
 
     @Override
     public void publishResult(GradingResult result) throws IOException {
-        String string = ConfigUtils.toJson(new NestMessageWrapper<>("result", result));
+        String string = SerializerUtils.toJson(new NestMessageWrapper<>("result", result));
         if (logger.isDebugEnabled()) {
             logger.debug("Publishing " + string);
         }

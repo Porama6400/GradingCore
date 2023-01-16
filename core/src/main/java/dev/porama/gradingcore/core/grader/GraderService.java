@@ -2,6 +2,7 @@ package dev.porama.gradingcore.core.grader;
 
 import dev.porama.gradingcore.common.file.FileService;
 import dev.porama.gradingcore.common.seaweed.SeaweedConnector;
+import dev.porama.gradingcore.core.config.MainConfiguration;
 import dev.porama.gradingcore.core.config.TemplateService;
 import dev.porama.gradingcore.core.container.ContainerTemplate;
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
@@ -26,10 +27,10 @@ public class GraderService {
 
     private final Logger logger = LoggerFactory.getLogger(GraderService.class);
 
-    public GraderService(TemplateService templateService, ScheduledExecutorService masterThreadPool, int tickInterval) {
+    public GraderService(TemplateService templateService, ScheduledExecutorService masterThreadPool, MainConfiguration config) {
         this.templateService = templateService;
 
-        masterThreadPool.scheduleAtFixedRate(this::tick, tickInterval, tickInterval, TimeUnit.MILLISECONDS);
+        masterThreadPool.scheduleAtFixedRate(this::tick, config.getTickInterval(), config.getTickInterval(), TimeUnit.MILLISECONDS);
     }
 
     public void tick() {
@@ -67,13 +68,12 @@ public class GraderService {
 
     public void shutdown() {
         logger.info("Shutting down");
-        while (sessionList.size() > 0) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+        for (GradingSession gradingSession : sessionList) {
+            gradingSession.getContainer().kill();
+            gradingSession.setState(GradingSession.State.FINISHED);
         }
+        sessionList.clear();
+
         gradingServiceThreadPool.shutdown();
         tempFileService.shutdown();
     }

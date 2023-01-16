@@ -63,7 +63,7 @@ ls testcase -al
 #sudo -u grader cat ./entrypoint.sh
 
 if [ ! -d "./testcase" ]; then
- echo "FAILED_MISSING_TEST" | tee status.txt
+ echo "MISSING_TEST" | tee status.txt
  finalize
 fi
 

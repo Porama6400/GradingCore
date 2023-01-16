@@ -7,9 +7,10 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 
-public class ParserUtils {
+public class SerializerUtils {
     public static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
+            .disableHtmlEscaping()
             .setExclusionStrategies(new SerializeIgnoreStrategy())
             .create();
 

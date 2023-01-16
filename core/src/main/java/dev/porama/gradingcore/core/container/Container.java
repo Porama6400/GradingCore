@@ -20,10 +20,6 @@ public interface Container {
 
     CompletableFuture<Void> sendInput(String input);
 
-    @Nullable String readOutputNow() throws IOException;
-
-    CompletableFuture<@Nullable String> readOutput(int timeout);
-
     CompletableFuture<Void> addFiles(Map<String, byte[]> files);
 
     CompletableFuture<Void> addFile(String path, byte[] data);

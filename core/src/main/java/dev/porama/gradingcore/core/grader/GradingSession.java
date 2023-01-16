@@ -84,7 +84,7 @@ public class GradingSession {
         if (getStateTime() > template.getTimeLimitState()) {
             logger.error("Container state timeout: " + container.getContainerId() + " at " + state);
             if (getState() == State.EXECUTING_WAIT) {
-                resultFuture.complete(new GradingResult(gradingRequest.getId(), GradingStatus.TIMEOUT_EXECUTION));
+                resultFuture.complete(new GradingResult(gradingRequest, GradingStatus.TIMEOUT_EXECUTION));
             } else {
                 resultFuture.completeExceptionally(new GradingStateTimeoutException("State timeout at state " + getState()));
             }
@@ -99,7 +99,10 @@ public class GradingSession {
                 setState(State.STARTING_WAIT);
                 this.startTime = System.currentTimeMillis();
                 container.start()
-                        .thenAccept(res -> setState(State.ATTACH))
+                        .thenAccept(res -> {
+                            logger.debug("Started container with id " + this.getContainer().getContainerId());
+                            setState(State.ATTACH);
+                        })
                         .exceptionally(ex -> {
                             logger.warn("Failed to start container " + container.getContainerId(), ex);
                             resultFuture.completeExceptionally(new GradingException(true, ex));
@@ -157,10 +160,7 @@ public class GradingSession {
             case EXECUTING_WAIT -> {
                 container.getFile("executed.lock").thenAccept(result -> {
                     setState(State.SAVING);
-                }).exceptionally(ex -> {
-                    logger.debug(container.getContainerId() + "still waiting");
-                    return null;
-                });
+                }).exceptionally(ex -> null); // still waiting
             }
             case SAVING -> {
                 setState(State.SAVING_WAIT);
@@ -172,8 +172,6 @@ public class GradingSession {
                         }
                         try {
                             int waitingAmount = savingCounter.decrementAndGet();
-
-                            logger.debug("File " + filePath + ":" + (result == null ? "null" : new String(result)) + " waiting for " + waitingAmount);
 
                             if (result != null) {
                                 fileMap.put(filePath, result);
@@ -206,9 +204,11 @@ public class GradingSession {
                     return null;
                 });
 
+                GradingResult parse = GradingResultParser.parse(gradingRequest, fileMap);
+                long containerTime = System.currentTimeMillis() - startTime;
+                parse.getMetadata().put("containerTime", containerTime);
 
-                GradingResult parse = GradingResultParser.parse(gradingRequest.getId(), fileMap);
-                parse.setDuration(System.currentTimeMillis() - startTime);
+                logger.debug("AAAAAAAA " + parse.getRequest());
                 resultFuture.complete(parse);
                 setState(State.FINISHING_WAIT);
             }

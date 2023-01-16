@@ -8,8 +8,8 @@
       "timeLimitHard": 15000,
       "timeLimitState": 5000,
       "outputFiles": [
-        "result.txt",
         "status.txt",
+        "timing.txt",
         "compilationLog.txt"
       ]
     },
@@ -21,8 +21,8 @@
       "timeLimitHard": 15000,
       "timeLimitState": 5000,
       "outputFiles": [
-        "result.txt",
         "status.txt",
+        "timing.txt",
         "compilationLog.txt"
       ]
     }

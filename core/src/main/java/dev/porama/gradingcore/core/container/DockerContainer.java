@@ -32,14 +32,6 @@ public class DockerContainer implements Container {
         this.tempFileService = tempFileService;
     }
 
-    public static void logProcessOutput(Process process) throws IOException {
-        logger.debug("Process {} has output: {}, error: {}",
-                process.pid(),
-                StreamUtils.toString(process.getInputStream()),
-                StreamUtils.toString(process.getErrorStream())
-        );
-    }
-
     public String applyCommandPlaceholders(String command) {
         command = command.replace("%image%", getTemplate().getImageId());
         command = command.replace("%time_limit_hard%", String.valueOf(getTemplate().getTimeLimitHard()));
@@ -60,7 +52,6 @@ public class DockerContainer implements Container {
         executorService.execute(() -> {
             try {
                 String effectiveStartCommand = applyCommandPlaceholders(template.getCommand());
-                logger.debug("Starting a container with the command: {}", effectiveStartCommand);
                 Process process = Runtime.getRuntime().exec(effectiveStartCommand);
                 process.waitFor();
                 containerId = StreamUtils.toString(process.getInputStream()).replaceAll("[^a-z0-9]", "");
@@ -69,7 +60,6 @@ public class DockerContainer implements Container {
                     throw new IOException("Failed to start: " + StreamUtils.toString(process.getErrorStream()));
                 }
 
-                logger.debug("Started container with id " + this.getContainerId());
                 future.complete(null);
             } catch (IOException | InterruptedException ex) {
                 future.completeExceptionally(ex);
@@ -129,42 +119,6 @@ public class DockerContainer implements Container {
         return future;
     }
 
-    @Override
-    @Nullable
-    public String readOutputNow() throws IOException {
-        InputStream inputStream = monitorProcess.getInputStream();
-        if (inputStream.available() == 0) return null;
-        return new String(inputStream.readNBytes(inputStream.available()));
-    }
-
-    @Override
-    public CompletableFuture<@Nullable String> readOutput(int timeout) {
-        CompletableFuture<String> future = new CompletableFuture<>();
-        executorService.submit(() -> {
-            long timeoutThreshold = System.currentTimeMillis() + timeout;
-            while (System.currentTimeMillis() < timeoutThreshold) {
-                logger.debug("readOutputTick");
-                try {
-                    String output = readOutputNow();
-                    logger.debug("Out: " + output);
-                    if (output != null) {
-                        future.complete(output);
-                        return;
-                    } else {
-                        Thread.sleep(100);
-                    }
-                } catch (IOException | InterruptedException e) {
-                    logger.debug("readOutputError", e);
-                    future.completeExceptionally(e);
-                    return;
-                }
-            }
-            logger.debug("readOutputTimeout");
-            future.completeExceptionally(new RuntimeException("Timeout while waiting for execution daemon stdout"));
-        });
-        return future;
-    }
-
     public CompletableFuture<ExecutionResult> executeRaw(String command) {
         CompletableFuture<ExecutionResult> future = new CompletableFuture<>();
 
@@ -180,7 +134,6 @@ public class DockerContainer implements Container {
                         StreamUtils.toString(process.getErrorStream()),
                         time
                 );
-                logger.debug(executionResult.toString());
                 future.complete(executionResult);
             } catch (IOException | InterruptedException e) {
                 future.completeExceptionally(e);
@@ -214,7 +167,6 @@ public class DockerContainer implements Container {
 
             String effectiveCommand = "docker cp " + temporaryFile.file().getPath() + " " + this.getContainerId() + ":" + template.getWorkingDirectory() + path.replace(" ", "\\ ");
             executeRaw(effectiveCommand).thenAccept(result -> {
-                logger.debug("Added file " + path + " to container " + this.getContainerId() + ":" + result);
 
                 if (result.stderr().length() > 0) {
                     future.completeExceptionally(new RuntimeException("Execution error: " + effectiveCommand + " -> " + result.stderr()));

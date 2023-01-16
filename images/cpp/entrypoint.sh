@@ -62,12 +62,12 @@ ls testcase -al
 #sudo -u grader cat ./testcase/1.in
 #sudo -u grader cat ./entrypoint.sh
 
-if [ !-d "./testcase" ]; then
+if [ ! -d "./testcase" ]; then
  echo "FAILED_MISSING_TEST" | tee status.txt
  finalize
 fi
 
-if [ !-d "./work" ]; then
+if [ ! -d "./work" ]; then
  echo "FAILED_CONTAINER" | tee status.txt
  finalize
 fi
@@ -77,7 +77,7 @@ if [ ! -f "./work/main" ]; then
   finalize
 fi
 
-cd work
+cd work || exit
 eval "cat ../testcase/in | time -v -o ../timing.txt sudo -u grader ./main" >../stdout.txt 2>../stderr.txt
 cd ..
 eval "cat stdout.txt | ./scrubber" >cmpout.txt
@@ -86,7 +86,7 @@ eval "diff cmpout.txt cmpref.txt" > diff.txt
 rm cmpout.txt cmpref.txt
 chmod go-r diff.txt
 
-#echo "===== $1 ====="
+#echo "=============="
 #ls -al
 #echo "=== stdout ==="
 #cat stdout.txt
@@ -99,9 +99,9 @@ chmod go-r diff.txt
 #echo "========="
 
 if [ -s ./diff.txt ]; then
-  echo "PASSED" > status.txt
+  echo "FAILED_RESULT" | tee status.txt
   finalize
 else
-  echo "FAILED_RESULT" > status.txt
+  echo "PASSED" | tee status.txt
   finalize
 fi

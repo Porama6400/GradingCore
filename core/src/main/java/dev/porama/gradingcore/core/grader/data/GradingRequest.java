@@ -18,15 +18,16 @@ public class GradingRequest {
      * long softLimitMemory
      * long softLimitTime
      */
+    private Map<String, String> settings = new HashMap<>();
     private Map<String, String> metadata = new HashMap<>();
-    private List<FileSource> filesSource = new ArrayList<>();
+    private List<FileSource> files = new ArrayList<>();
 
     public GradingRequest(String type, Map<String, byte[]> files) {
         this.type = type;
-        files.forEach((key, value) -> filesSource.add(FileSource.base64(key, value)));
+        files.forEach((key, value) -> this.files.add(FileSource.base64(key, value)));
     }
 
-    public List<FileSource> getFilesSource() {
-        return filesSource;
+    public List<FileSource> getFiles() {
+        return files;
     }
 }

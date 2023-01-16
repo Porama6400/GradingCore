@@ -10,6 +10,7 @@ import dev.porama.gradingcore.core.exception.GradingStateTimeoutException;
 import dev.porama.gradingcore.core.exception.GradingTimeoutException;
 import dev.porama.gradingcore.core.grader.data.GradingRequest;
 import dev.porama.gradingcore.core.grader.data.GradingResult;
+import dev.porama.gradingcore.core.grader.data.GradingResultParser;
 import dev.porama.gradingcore.core.grader.data.GradingStatus;
 import dev.porama.gradingcore.core.temp.TempFileService;
 import lombok.Getter;
@@ -120,7 +121,7 @@ public class GradingSession {
             }
             case ADDING_FILES -> {
                 setState(State.ADDING_FILES_WAIT);
-                List<FileSource> fileSources = gradingRequest.getFilesSource();
+                List<FileSource> fileSources = gradingRequest.getFiles();
                 AtomicInteger fileCounter = new AtomicInteger(fileSources.size());
 
                 fileSources.forEach(source -> {
@@ -206,7 +207,7 @@ public class GradingSession {
                 });
 
 
-                GradingResult parse = GradingResult.parse(gradingRequest.getId(), fileMap);
+                GradingResult parse = GradingResultParser.parse(gradingRequest.getId(), fileMap);
                 parse.setDuration(System.currentTimeMillis() - startTime);
                 resultFuture.complete(parse);
                 setState(State.FINISHING_WAIT);

@@ -24,6 +24,8 @@ public class GradingResultParser {
             logger.error("Failed to parse grading status: {}", statusText);
         }
 
-        return new GradingResult(request, status, compilationLog, fileMap);
+        GradingResult gradingResult = new GradingResult(request, status, fileMap);
+        gradingResult.getMetadata().put("compilationLog", compilationLog);
+        return gradingResult;
     }
 }

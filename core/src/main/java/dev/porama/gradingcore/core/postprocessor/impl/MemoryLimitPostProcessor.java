@@ -35,7 +35,10 @@ public class MemoryLimitPostProcessor implements PostProcessor {
 
         String memoryString = matcher.group(1);
         try {
-            long memory = Long.parseLong(memoryString); // in kB
+            long memoryLong = Long.parseLong(memoryString);
+            double memory = memoryLong / 1024D; // in kB
+            memory = Math.round(memory * 100D) / 100D; // round to 2 decimal places
+
             result.getMetadata().put("memory", memory);
 
             GradingRequest request = result.getRequest();

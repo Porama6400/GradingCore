@@ -208,7 +208,6 @@ public class GradingSession {
                 long containerTime = System.currentTimeMillis() - startTime;
                 parse.getMetadata().put("containerTime", containerTime);
 
-                logger.debug("AAAAAAAA " + parse.getRequest());
                 resultFuture.complete(parse);
                 setState(State.FINISHING_WAIT);
             }

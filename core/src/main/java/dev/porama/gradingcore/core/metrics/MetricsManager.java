@@ -11,6 +11,7 @@ import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 public class MetricsManager {
@@ -41,7 +42,9 @@ public class MetricsManager {
 
     public void handleResponse(GradingRequest request, GradingResult gradingResult) {
         synchronized (points) {
-            long containerTime = (Long) gradingResult.getMetadata().get("containerTime");
+            Map<String, Object> metadataMap = gradingResult.getMetadata();
+            if (!metadataMap.containsKey("containerTime")) return;
+            long containerTime = (Long) metadataMap.get("containerTime");
             points.add(Point.measurement("response")
                     .time(System.currentTimeMillis(), WritePrecision.MS)
                     .addTag("node", nodeId)

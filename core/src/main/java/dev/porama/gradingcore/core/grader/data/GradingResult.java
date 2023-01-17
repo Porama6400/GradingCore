@@ -12,8 +12,6 @@ public class GradingResult {
 
     private int id;
     private GradingStatus status;
-    @Nullable
-    private String compilationLog;
     private Map<String, Object> metadata;
 
 
@@ -24,14 +22,13 @@ public class GradingResult {
     private GradingRequest request;
 
     public GradingResult(GradingRequest request, GradingStatus status) {
-        this(request, status, null, null);
+        this(request, status, null);
     }
 
-    public GradingResult(GradingRequest request, GradingStatus status, @Nullable String compilationLog, @Nullable Map<String, byte[]> files) {
+    public GradingResult(GradingRequest request, GradingStatus status, @Nullable Map<String, byte[]> files) {
         this.request = request;
         this.id = request.getId();
         this.status = status;
-        this.compilationLog = compilationLog;
         this.files = files;
         this.metadata = request.getMetadata() == null ? new HashMap<>() : new HashMap<>(request.getMetadata());
     }

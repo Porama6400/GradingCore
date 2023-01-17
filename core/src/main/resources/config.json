@@ -5,7 +5,7 @@
   "influxToken": "token",
   "influxOrg": "org",
   "influxBucket": "bucket",
-  "nodeId": "testnode",
+  "hostname": "testnode",
   "parallelism": 8,
   "maxRequeue": 3,
   "tickInterval": 300,

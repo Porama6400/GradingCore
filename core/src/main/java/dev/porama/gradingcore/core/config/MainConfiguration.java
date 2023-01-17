@@ -12,7 +12,7 @@ public class MainConfiguration {
     private String influxToken;
     private String influxOrg;
     private String influxBucket;
-    private String nodeId;
+    private String hostname;
     private int parallelism;
     private int maxRequeue;
     private int tickInterval;

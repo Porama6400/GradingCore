@@ -38,18 +38,20 @@ public class GradingCore {
     private Scheduler scheduler;
 
     public void start() throws IOException {
+        logger = LoggerFactory.getLogger(GradingCore.class);
+
         mainConfiguration = ConfigUtils.load(new File("config.json"), MainConfiguration.class);
+        mainConfiguration.setHostname(mainConfiguration.getHostname().replaceAll("%hostname%", getHostName()));
+
         tempDirectory = new File("temp");
         tempFileService = new TempFileService(tempDirectory);
         masterThreadPool = Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
         metricsManager = new MetricsManager(
                 mainConfiguration.getInfluxUrl(), mainConfiguration.getInfluxToken(),
                 mainConfiguration.getInfluxOrg(), mainConfiguration.getInfluxBucket(),
-                mainConfiguration.getNodeId());
+                mainConfiguration.getHostname());
         masterThreadPool.scheduleAtFixedRate(metricsManager::tickPublish, 5, 5, TimeUnit.SECONDS);
-
-        logger = LoggerFactory.getLogger(GradingCore.class);
-        logger.info("Starting GradingCore");
+        logger.info("Starting GradingCore - node " + mainConfiguration.getHostname());
         if (mainConfiguration.isDebug()) {
             logger.info("Debug mode is enabled");
             //set log level to debug
@@ -70,6 +72,17 @@ public class GradingCore {
         scheduler = new Scheduler(graderService, masterThreadPool, postProcessor, mainConfiguration);
 
         messenger.listen(masterThreadPool, scheduler::handle);
+    }
+
+    public String getHostName() {
+        try {
+            Process hostname = Runtime.getRuntime().exec("hostname");
+            hostname.waitFor();
+            return new String(hostname.getInputStream().readAllBytes());
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+            return "";
+        }
     }
 
     public void shutdown() {

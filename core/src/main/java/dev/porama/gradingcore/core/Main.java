@@ -11,8 +11,12 @@ public class Main {
         GradingCore gradingCore = new GradingCore();
         gradingCore.start();
 
-        logger.info("Press any key to shutdown...");
-        System.in.read();
-        gradingCore.shutdown();
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                gradingCore.shutdown();
+            } catch (Exception e) {
+                logger.error("Failed to stop GradingCore", e);
+            }
+        }));
     }
 }

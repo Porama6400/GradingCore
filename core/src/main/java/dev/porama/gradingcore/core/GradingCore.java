@@ -78,7 +78,9 @@ public class GradingCore {
         try {
             Process hostname = Runtime.getRuntime().exec("hostname");
             hostname.waitFor();
-            return new String(hostname.getInputStream().readAllBytes());
+            String hostString = new String(hostname.getInputStream().readAllBytes());
+            hostString = hostString.replaceAll("(\r|\n)", "");
+            return hostString;
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
             return "";
